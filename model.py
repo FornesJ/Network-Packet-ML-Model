@@ -21,7 +21,7 @@ class Model:
             for (data, labels) in train_loader:
                 if not data.is_cuda or not labels.is_cuda:
                     data, labels = data.to(self.device), labels.to(self.device)
-
+                
                 pred = self.model(data)
                 loss = self.criterion(pred, labels)
                 running_loss += loss.item() * data.size(0)
