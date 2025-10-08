@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from model import Model
+from split_model import SplitModelDPU, SplitModelHost
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -289,6 +290,79 @@ light_gru = Model(light_gru_model, light_gru_criterion, light_gru_optimizer, lig
 
 
 
+######################################################################
+#                                                                    #
+#   Pytorch Models: Split GRU model                                  #
+#                                                                    #
+######################################################################
+
+
+# create GRU model:
+class SPLITGRU(nn.Module):
+    def __init__(self, i_size, h_size, binary=False):
+        super(SPLITGRU, self).__init__()
+        self.i_size = i_size
+        self.h_size = h_size
+        self.binary = binary
+        self.gru1 = nn.GRU(input_size=i_size, hidden_size=h_size, num_layers=2, batch_first=True, dropout=0.15, bidirectional=True, device=device)
+        self.bn1 = nn.BatchNorm1d(2 * h_size)
+
+        self.fc_binary = nn.Sequential(
+            nn.Linear(2*self.h_size, 128),
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
+            nn.Dropout(p=0.15),
+            nn.Linear(128, 1),
+            nn.Sigmoid()
+        )
+
+        self.fc_class = nn.Sequential(
+            nn.Linear(2*self.h_size, 128),
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
+            nn.Dropout(p=0.15),
+            nn.Linear(128, 24)
+        )
+        
+    def forward(self, x, h0=None):
+        if h0 is None:
+            h0 = torch.zeros(4, x.shape[0], self.h_size).to(device)
+
+        output, h0 = self.gru1(x, h0)  # output: [B, T, 2*h_size]
+
+        # take last layer's hidden state (both directions)
+        # h0 shape: [num_layers*2, B, size]
+        h_last = h0.view(2, 2, x.shape[0], self.h_size)[-1]  # [2, B, h_size]
+        h_last = torch.cat((h_last[0], h_last[1]), dim=1)  # [B, 2*h_size]
+
+        # apply BN + FC
+        logits = self.bn1(h_last)  # [B, 2*h_size] → batch norm
+        if self.binary:
+            out = self.fc_binary(logits) # [B, 1]
+        else:
+            out = self.fc_class(logits) # [B, 24]
+
+        return out, logits
+
+# load dpu model
+torch.manual_seed(42)
+dpu_model = SPLITGRU(1, 64, binary=True).to(device)
+dpu_criterion = nn.BCELoss()
+dpu_optimizer = torch.optim.AdamW(dpu_model.parameters(), lr=0.0001, weight_decay=0.01)
+dpu_scheduler = torch.optim.lr_scheduler.ExponentialLR(dpu_optimizer, 0.9)
+dpu = SplitModelDPU(dpu_model, dpu_criterion, dpu_optimizer, dpu_scheduler, device)
+
+
+# load host model
+torch.manual_seed(42)
+host_model = SPLITGRU(128, 64).to(device)
+host_criterion = FocalLoss()
+host_optimizer = torch.optim.AdamW(host_model.parameters(), lr=0.0001, weight_decay=0.01)
+host_scheduler = torch.optim.lr_scheduler.ExponentialLR(host_optimizer, 0.9)
+host = SplitModelHost(host_model, host_criterion, host_optimizer, host_scheduler, device)
+
+
+
 
 ######################################################################
 #                                                                    #
@@ -303,5 +377,7 @@ models = {
     "lstm": lstm,
     "light_lstm": light_lstm,
     "gru": gru,
-    "light_gru": light_gru
+    "light_gru": light_gru,
+    "dpu": dpu,
+    "host": host
 }
