@@ -30,7 +30,7 @@ void close_dpu_socket(struct dpu_socket *socket) {
     free(socket);
 }
 
-int dpu_send_buffer(char* buffer, int size, char* host_adress) {
+int dpu_send_buffer(float* tensor, int size, char* host_adress) {
     struct dpu_socket *socket_conf = malloc(sizeof(struct dpu_socket));
 
     // create dpu socket
@@ -66,7 +66,7 @@ int dpu_send_buffer(char* buffer, int size, char* host_adress) {
     }
 
     // send size of buffer to host
-    ssize_t size_net = htonl(size);
+    int size_net = htonl(size);
     socket_conf->wc = send(socket_conf->fd, &size_net, sizeof(size_net), 0);
     if (socket_conf->wc < 0) {
         printf("\n Send buf size to host failed! \n");
@@ -75,7 +75,7 @@ int dpu_send_buffer(char* buffer, int size, char* host_adress) {
     }
 
     // send buffer to host
-    socket_conf->wc = send(socket_conf->fd, buffer, size, 0);
+    socket_conf->wc = send(socket_conf->fd, tensor, size * sizeof(float), 0);
     if (socket_conf->wc < 0) {
         printf("\n Send buf size to host failed! \n");
         close_dpu_socket(socket_conf);
@@ -141,7 +141,7 @@ int host_recv_buffer() {
         return EXIT_FAILURE;
     }
 
-    ssize_t size_net;
+    int size_net;
     socket_conf->rc = read(socket_conf->dpu_socket, &size_net, sizeof(size_net));
     if (socket_conf->rc < 0) {
         printf("\n Failed to read size from host! \n");
@@ -149,32 +149,43 @@ int host_recv_buffer() {
         close(socket_conf->fd);
         free(socket_conf);
     }
-    size_t size = ntohl(size_net);
+    int size = ntohl(size_net);
 
-    char *buffer = malloc(size);
-    socket_conf->rc = read(socket_conf->dpu_socket, buffer, size);
+    // allocate buffer
+    float *tensor = malloc(size * sizeof(float));
+    if (!tensor) {
+        printf("\n Failed to allocate tesnor on host! \n");
+        close(socket_conf->dpu_socket);
+        close(socket_conf->fd);
+        free(socket_conf);
+        free(tensor);
+    }
+
+    socket_conf->rc = read(socket_conf->dpu_socket, tensor, size * sizeof(float));
     if (socket_conf->rc < 0) {
         printf("\n Failed to read buffer from host! \n");
         close(socket_conf->dpu_socket);
         close(socket_conf->fd);
         free(socket_conf);
-        free(buffer);
+        free(tensor);
     }
 
-
-    printf("Recieved buffer: %.*s\n", (int) size, buffer);
+    for (int i = 0; i < size; i++) {
+        printf("buffer[%d] = %f\n", i, tensor[i]);
+    }
     close(socket_conf->dpu_socket);
     close(socket_conf->fd);
     free(socket_conf);
-    free(buffer);
+    free(tensor);
 
     return EXIT_SUCCESS;
 }
 
+/*
 int main(int argc, char* argv[]) {
     int exit_status = EXIT_FAILURE;
-    char* buffer_msg = "This is a buffer containing values 1 2 4 7 10 2033 455 6777 8999";
-    int buf_size = strlen(buffer_msg);
+    float buffer_msg[] = {1.2f, 3.4f, 5.6f};
+    int buf_size = sizeof(buffer_msg) / sizeof(buffer_msg[0]);
     char* adress = "127.0.0.1"; //"10.128.14.17";
 
     if (argc > 2) {
@@ -192,4 +203,5 @@ int main(int argc, char* argv[]) {
     }
 
     return exit_status;
-}   
+}
+*/   
