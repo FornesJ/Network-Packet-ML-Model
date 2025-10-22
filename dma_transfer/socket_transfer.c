@@ -25,20 +25,38 @@ struct dpu_socket {
     struct sockaddr_in host_addr;
 };
 
-void close_dpu_socket(struct dpu_socket *socket) {
-    close(socket->fd);
-    free(socket);
+struct tensor {
+    int size;
+    int dim;
+    int *shape;
+    float *buffer;
+};
+
+struct tensor* alloc_tensor() {
+    struct tensor *t = malloc(sizeof(struct tensor));
+    if (!t) {
+        return NULL;
+    }
+    return t;
 }
 
-int dpu_send_buffer(float* tensor, int size, char* host_adress) {
+void free_tensor(struct tensor *t) {
+    if (t) {
+        free(t->shape);
+        free(t->buffer);
+        free(t);
+    }
+}
+
+int dpu_send_buffer(float* buffer, int size, int dim, int* shape, char* host_adress) {
     struct dpu_socket *socket_conf = malloc(sizeof(struct dpu_socket));
+    if (!socket_conf) return EXIT_FAILURE;
 
     // create dpu socket
     socket_conf->fd = socket(AF_INET, SOCK_STREAM, 0);
     if (socket_conf->fd < 0) {
         printf("\n Socket creation error \n");
-        close_dpu_socket(socket_conf);
-        return EXIT_FAILURE;
+        goto fail;
     }
 
     socket_conf->host_addr.sin_family = AF_INET;
@@ -48,21 +66,33 @@ int dpu_send_buffer(float* tensor, int size, char* host_adress) {
     socket_conf->wc = inet_pton(AF_INET, host_adress, &socket_conf->host_addr.sin_addr);
     if (socket_conf->wc < 0) {
         printf("\n Function inet_pton failed! \n");
-        close_dpu_socket(socket_conf);
-        return EXIT_FAILURE;
+        goto fail;
     }
     if (socket_conf->wc == 0) {
         printf("\n Invalid address/ Address not supported! \n");
-        close_dpu_socket(socket_conf);
-        return EXIT_FAILURE;
+        goto fail;
     }
 
     // connect to host
     socket_conf->wc = connect(socket_conf->fd, (struct sockaddr*)&socket_conf->host_addr, sizeof(socket_conf->host_addr));
     if (socket_conf->wc < 0) {
         printf("\n Connection Failed \n");
-        close_dpu_socket(socket_conf);
-        return EXIT_FAILURE;
+        goto fail;
+    }
+
+    // send dimention of tensor to host
+    int dim_net = htonl(dim);
+    socket_conf->wc = send(socket_conf->fd, &dim_net, sizeof(dim_net), 0);
+    if (socket_conf->wc < 0) {
+        printf("\n Send tensor dim to host failed! \n");
+        goto fail;
+    }
+
+    // send shape of tensor to host
+    socket_conf->wc = send(socket_conf->fd, shape, dim * sizeof(int), 0);
+    if (socket_conf->wc < 0) {
+        printf("\n Send tensor shape to host failed! \n");
+        goto fail;
     }
 
     // send size of buffer to host
@@ -70,25 +100,30 @@ int dpu_send_buffer(float* tensor, int size, char* host_adress) {
     socket_conf->wc = send(socket_conf->fd, &size_net, sizeof(size_net), 0);
     if (socket_conf->wc < 0) {
         printf("\n Send buf size to host failed! \n");
-        close_dpu_socket(socket_conf);
-        return EXIT_FAILURE;
+        goto fail;
     }
 
     // send buffer to host
-    socket_conf->wc = send(socket_conf->fd, tensor, size * sizeof(float), 0);
+    socket_conf->wc = send(socket_conf->fd, buffer, size * sizeof(float), 0);
     if (socket_conf->wc < 0) {
         printf("\n Send buf size to host failed! \n");
-        close_dpu_socket(socket_conf);
-        return EXIT_FAILURE;
+        goto fail;
     }
-    printf("\n Buffer of size %i bytes sent to host! \n", socket_conf->wc);
+    printf("Buffer of size %i bytes sent to host! \n", socket_conf->wc);
 
-    close_dpu_socket(socket_conf);
+    close(socket_conf->fd);
+    free(socket_conf);
     return EXIT_SUCCESS;
+
+fail:
+    close(socket_conf->fd);
+    free(socket_conf);
+    return EXIT_FAILURE;
 }
 
-int host_recv_buffer() {
+int host_recv_buffer(struct tensor *new_tensor) {
     struct host_socket *socket_conf = malloc(sizeof(struct host_socket));
+    if (!socket_conf) return EXIT_FAILURE;
     socket_conf->opt = 1;
     socket_conf->addrlen = sizeof(socket_conf->address);
 
@@ -96,17 +131,13 @@ int host_recv_buffer() {
     socket_conf->fd = socket(AF_INET, SOCK_STREAM, 0);
     if (socket_conf->fd < 0) {
         perror("socket failed");
-        close(socket_conf->fd);
-        free(socket_conf);
-        return EXIT_FAILURE;
+        goto fail;
     }
 
     // set socket option
     if (setsockopt(socket_conf->fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &socket_conf->opt, sizeof(socket_conf->opt))) {
         perror("setsockopt");
-        close(socket_conf->fd);
-        free(socket_conf);
-        return EXIT_FAILURE;
+        goto fail;
     }
 
     socket_conf->address.sin_family = AF_INET;
@@ -117,18 +148,14 @@ int host_recv_buffer() {
     socket_conf->wc = bind(socket_conf->fd, (struct sockaddr*)&socket_conf->address, sizeof(socket_conf->address));
     if (socket_conf->wc < 0) {
         perror("bind failed");
-        close(socket_conf->fd);
-        free(socket_conf);
-        return EXIT_FAILURE;
+        goto fail;
     }
 
     // listen on port 8086
     socket_conf->wc = listen(socket_conf->fd, 3);
     if (socket_conf->wc < 0) {
         perror("listen");
-        close(socket_conf->fd);
-        free(socket_conf);
-        return EXIT_FAILURE;
+        goto fail;
     }
 
     // accept connection from dpu socket
@@ -136,72 +163,68 @@ int host_recv_buffer() {
     if (socket_conf->dpu_socket < 0) {
         perror("accept");
         close(socket_conf->dpu_socket);
-        close(socket_conf->fd);
-        free(socket_conf);
-        return EXIT_FAILURE;
+        goto fail;
     }
 
+    // read dimention of tensor from dpu
+    int dim_net;
+    socket_conf->rc = read(socket_conf->dpu_socket, &dim_net, sizeof(dim_net));
+    if (socket_conf->rc < 0) {
+        printf("\n Failed to tensor dim from dpu! \n");
+        close(socket_conf->dpu_socket);
+        goto fail;
+    }
+    new_tensor->dim = ntohl(dim_net); // tensor dim
+
+    // allocate memory for shape
+    new_tensor->shape = malloc(new_tensor->dim * sizeof(int));
+    if (!new_tensor->shape) {
+        printf("\n Failed to malloc shape! \n");
+        close(socket_conf->dpu_socket);
+        goto fail;
+    }
+
+    // read tensor shape from dpu
+    socket_conf->rc = read(socket_conf->dpu_socket, new_tensor->shape, new_tensor->dim * sizeof(int));
+    if (socket_conf->rc < 0) {
+        printf("\n Failed to read tensor shape from dpu! \n");
+        close(socket_conf->dpu_socket);
+        goto fail;
+    }
+
+    // read size of buffer from host
     int size_net;
     socket_conf->rc = read(socket_conf->dpu_socket, &size_net, sizeof(size_net));
     if (socket_conf->rc < 0) {
         printf("\n Failed to read size from host! \n");
         close(socket_conf->dpu_socket);
-        close(socket_conf->fd);
-        free(socket_conf);
+        goto fail;
     }
-    int size = ntohl(size_net);
+    new_tensor->size = ntohl(size_net); // buffer size
 
-    // allocate buffer
-    float *tensor = malloc(size * sizeof(float));
-    if (!tensor) {
-        printf("\n Failed to allocate tesnor on host! \n");
+    new_tensor->buffer = malloc(new_tensor->size * sizeof(float));
+    if (!new_tensor->buffer) {
+        printf("\n Failed to malloc buffer! \n");
         close(socket_conf->dpu_socket);
-        close(socket_conf->fd);
-        free(socket_conf);
-        free(tensor);
+        goto fail;
     }
 
-    socket_conf->rc = read(socket_conf->dpu_socket, tensor, size * sizeof(float));
+    // read data from dpu into host buffer
+    socket_conf->rc = read(socket_conf->dpu_socket, new_tensor->buffer, new_tensor->size * sizeof(float));
     if (socket_conf->rc < 0) {
         printf("\n Failed to read buffer from host! \n");
         close(socket_conf->dpu_socket);
-        close(socket_conf->fd);
-        free(socket_conf);
-        free(tensor);
+        goto fail;
     }
-
-    for (int i = 0; i < size; i++) {
-        printf("buffer[%d] = %f\n", i, tensor[i]);
-    }
+    
     close(socket_conf->dpu_socket);
     close(socket_conf->fd);
     free(socket_conf);
-    free(tensor);
 
     return EXIT_SUCCESS;
-}
 
-/*
-int main(int argc, char* argv[]) {
-    int exit_status = EXIT_FAILURE;
-    float buffer_msg[] = {1.2f, 3.4f, 5.6f};
-    int buf_size = sizeof(buffer_msg) / sizeof(buffer_msg[0]);
-    char* adress = "127.0.0.1"; //"10.128.14.17";
-
-    if (argc > 2) {
-        printf("\n To many arguments, need only one argument (dpu/host) \n");
-        return exit_status;
-    }
-
-    char *device = argv[1];
-    if (strcmp(device, "dpu") == 0) {
-        exit_status = dpu_send_buffer(buffer_msg, buf_size, adress);
-    } else if (strcmp(device, "host") == 0) {
-        exit_status = host_recv_buffer();
-    } else {
-        printf("\n Argument not recognised, required argument must be 'dpu' or 'host' \n");
-    }
-
-    return exit_status;
-}
-*/   
+fail:
+    close(socket_conf->fd);
+    free(socket_conf);
+    return EXIT_FAILURE;
+}   

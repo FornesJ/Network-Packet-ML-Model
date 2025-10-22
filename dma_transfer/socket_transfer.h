@@ -3,4 +3,4 @@
 
 int dpu_send_buffer(float* tensor, int size, char* host_adress);
 
-int host_recv_buffer();
+float* host_recv_buffer();
