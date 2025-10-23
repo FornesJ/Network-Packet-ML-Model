@@ -88,3 +88,14 @@ def split_datasets(X, y, val_size=0.1, test_size=0.2):
 
     return X_train, y_train, X_val, y_val, X_test, y_test
 
+def binary_dataset(labels, label_dict):
+    binary_labels = []
+    label_names = list(label_dict.keys())
+    for label in labels:
+        if label_names[label] == "Normal":
+            binary_labels.append(0)
+        else:
+            binary_labels.append(1)
+    y_binary = torch.tensor(binary_labels, dtype=torch.float)
+    return y_binary
+
