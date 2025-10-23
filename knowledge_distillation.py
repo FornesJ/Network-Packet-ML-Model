@@ -1,6 +1,18 @@
 import torch
 import torch.nn as nn
 
+# binary dataset
+def binary_dataset(labels, label_dict, device):
+    binary_labels = []
+    label_names = list(label_dict.keys())
+    for label in labels:
+        if label_names[label] == "Normal":
+            binary_labels.append(0)
+        else:
+            binary_labels.append(1)
+    y_binary = torch.tensor(binary_labels, dtype=torch.float).to(device)
+    return y_binary
+
 class KnowledgeDistillation:
     def __init__(self, teacher, student, device, T=2, soft_target_loss_weight=0.25, loss_weight=0.75):
         self.teacher = teacher
@@ -58,6 +70,71 @@ class KnowledgeDistillation:
             # validate student model
             epoch_loss = running_loss / len(train_loader.dataset)
             val_epoch_loss, acc = self.student.evaluate(val_loader)
+            self.student.scheduler.step()
+
+            train_loss.append(epoch_loss)
+            val_loss.append(val_epoch_loss)
+            accuracy_list.append(acc)
+
+            print(f"Epoch: {epoch}/{epochs}, Accuracy: {100*acc:.2f}%, Train loss: {epoch_loss:.4f}, Val loss: {val_epoch_loss:.4f}")
+        
+        return accuracy_list, train_loss, val_loss
+
+
+class SplitModelKD(KnowledgeDistillation):
+    def __init__(self, teacher, student, device, label_dict):
+        super().__init__(teacher, student, device, T=1)
+        self.label_dict = label_dict
+    
+    def train_kd(self, train_loader, val_loader, epochs):
+        self.teacher.model.eval()
+        train_loss = []
+        val_loss = []
+        accuracy_list = []
+        for epoch in range(1, epochs + 1):
+            self.student.model.train()
+            running_loss = 0.0
+
+            for (data, labels) in train_loader:
+                if not data.is_cuda or not labels.is_cuda:
+                    data, labels = data.to(self.device), labels.to(self.device)
+
+                bin_labels = binary_dataset(labels, self.label_dict, self.device)
+                bin_labels = bin_labels.to(self.device)
+
+                self.student.optimizer.zero_grad()
+
+                # Forward pass with the teacher model - do not save gradients here as we do not change the teacher's weights
+                with torch.no_grad():
+                    teacher_probs, _ = self.teacher.model(data)
+                
+                teacher_probs = teacher_probs.detach()
+                teacher_probs = teacher_probs.squeeze()
+
+                # Forward pass with the student model
+                student_probs, _ = self.student.model(data)
+                student_probs = student_probs.squeeze()
+
+                # Soft target loss (scaled by T^2)
+                soft_targets_loss = nn.functional.binary_cross_entropy(
+                    student_probs, teacher_probs
+                ) * (self.T ** 2)
+
+                # Hard label loss
+                label_loss = self.student.criterion(student_probs, bin_labels)
+
+                # Weighted combination
+                loss = self.soft_target_loss_weight * soft_targets_loss + self.loss_weight * label_loss
+                running_loss += loss.item()
+                loss.backward()
+
+                # Perform gradient clipping by value
+                nn.utils.clip_grad_value_(self.student.model.parameters(), clip_value=0.2)
+
+                self.student.optimizer.step()
+
+            epoch_loss = running_loss / len(train_loader.dataset)
+            acc, val_epoch_loss, _, _ = self.student.evaluate(val_loader, self.label_dict)
             self.student.scheduler.step()
 
             train_loss.append(epoch_loss)
