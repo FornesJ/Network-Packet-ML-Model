@@ -208,6 +208,7 @@ __marimo__/
 
 # pytorch
 *.pth
+*.pt
 
 # datasets
 *.csv

@@ -343,6 +343,40 @@ class SPLITGRU(nn.Module):
             out = self.fc_class(logits) # [B, 24]
 
         return out, logits
+    
+class LightSplitDPU(nn.Module):
+    def __init__(self, i_size, h_size):
+        super(LightSplitDPU, self).__init__()
+        self.i_size = i_size
+        self.h_size = h_size
+        self.gru1 = nn.GRU(input_size=i_size, hidden_size=h_size, num_layers=1, batch_first=True, bidirectional=True, device=device)
+        self.bn1 = nn.BatchNorm1d(2 * h_size)
+
+        self.fc = nn.Sequential(
+            nn.Linear(2*h_size, 32),
+            nn.BatchNorm1d(32),
+            nn.ReLU(),
+            nn.Dropout(p=0.15),
+            nn.Linear(32, 1),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x, h0=None, c0=None):
+        if h0 is None:
+            h0 = torch.zeros(2, x.shape[0], self.h_size).to(device)
+
+        output, h0 = self.gru1(x, h0)  # output: [B, T, 2*h_size]
+
+        # take last layer's hidden state (both directions)
+        # h0 shape: [num_layers*2, B, size]
+        h_last = h0.view(1, 2, x.shape[0], self.h_size)[-1]  # [2, B, h_size]
+        h_last = torch.cat((h_last[0], h_last[1]), dim=1)  # [B, 2*h_size]
+
+        # apply BN + FC
+        logits = self.bn1(h_last)         # [B, 2*h_size] → batch norm
+
+        out = self.fc(logits)            # [B, 1]
+        return out, logits
 
 # load dpu model
 torch.manual_seed(42)
@@ -362,6 +396,15 @@ host_scheduler = torch.optim.lr_scheduler.ExponentialLR(host_optimizer, 0.9)
 host = SplitModelHost(host_model, host_criterion, host_optimizer, host_scheduler, device)
 
 
+# load light dpu model
+torch.manual_seed(42)
+light_dpu_model = LightSplitDPU(1, 64).to(device)
+light_dpu_criterion = nn.BCELoss()
+light_dpu_optimizer = torch.optim.AdamW(light_dpu_model.parameters(), lr=0.0001, weight_decay=0.01)
+light_dpu_scheduler = torch.optim.lr_scheduler.ExponentialLR(light_dpu_optimizer, 0.9)
+light_dpu = SplitModelDPU(light_dpu_model, light_dpu_criterion, light_dpu_optimizer, light_dpu_scheduler, device)
+
+
 
 
 ######################################################################
@@ -379,5 +422,6 @@ models = {
     "gru": gru,
     "light_gru": light_gru,
     "dpu": dpu,
-    "host": host
+    "host": host,
+    "light_dpu": light_dpu
 }

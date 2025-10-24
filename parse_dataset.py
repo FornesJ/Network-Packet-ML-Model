@@ -1,9 +1,8 @@
 import os
 import torch
-import torch.nn as nn
 from torch.utils.data import Dataset
-import random
 from sklearn.model_selection import StratifiedShuffleSplit
+import json
 
 class NetworkDataset(Dataset):
     """
@@ -21,6 +20,8 @@ class NetworkDataset(Dataset):
             return self.data[index, :, :], self.labels[index]
         else:
             return self.data[index, :], self.labels[index]
+
+
 
 def parse_dataset(file):
     """
@@ -99,3 +100,25 @@ def binary_dataset(labels, label_dict):
     y_binary = torch.tensor(binary_labels, dtype=torch.float)
     return y_binary
 
+if __name__ == "__main__":
+    # extract dataset from csv file
+    dataset_path = os.path.join(os.getcwd(), "datasets")
+    network_data_file = os.path.join(dataset_path, "network_packet_data_test.csv")
+
+    data, labels, label_dict = parse_dataset(network_data_file)
+    json_data = json.dumps(label_dict, indent=4)
+    json_file = os.path.join(dataset_path, "label_index.json")
+    with open(json_file, 'w') as file:
+        file.write(json_data)
+
+    X_train, y_train, X_val, y_val, X_test, y_test = split_datasets(data, labels)
+
+    # save train, val and test datasets
+    train_dataset_file = os.path.join(dataset_path, "train_dataset.pt")
+    torch.save((X_train, y_train), train_dataset_file)
+
+    val_dataset_file = os.path.join(dataset_path, "val_dataset.pt")
+    torch.save((X_val, y_val), val_dataset_file)
+
+    test_dataset_file = os.path.join(dataset_path, "test_dataset.pt")
+    torch.save((X_test, y_test), test_dataset_file)
