@@ -10,10 +10,12 @@
 int main(int argc, char **argv) {
     // 1. Parse args: PCIe addresses (-p for comm channel, -r for representor on DPU), file size etc.
     doca_comch_ep_t *dpu_ep = NULL;
-    doca_comch_ep_listen(/* PCIe addr, rep-PCIe addr */, &dpu_ep);
+    char *pcie_addr = getenv("PCIe_ADDR");
+    char *rep_pcie_addr = getenv("REP_PCIe_ADDR");
+    doca_comch_ep_listen(pcie_addr, rep_pcie_addr, &dpu_ep);
 
     // 2. Receive host export descriptor + host buffer address + size
-    size_t export_desc_size = ...;  // maybe send size first
+    size_t export_desc_size = BUFSIZE;  // maybe send size first
     uint8_t *export_desc = malloc(export_desc_size);
     doca_comch_recv(dpu_ep, export_desc, export_desc_size, 0);
 

@@ -11,7 +11,8 @@ int main(int argc, char **argv) {
     // 1. Parse args: file name, size, PCIe address of comm channel (‐p), etc
     // 2. init DOCA comm channel endpoint
     doca_comch_ep_t *host_ep = NULL;
-    doca_comch_ep_open(/*PCI address*/, &host_ep);
+    char *pcie_addr = getenv("PCIe_ADDR");
+    doca_comch_ep_open(pci, &host_ep);
 
     // 3. Allocate host buffer (receive buffer)
     size_t buf_size = BUFSIZE;
