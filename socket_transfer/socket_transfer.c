@@ -82,13 +82,22 @@ int dpu_send_buffer(float* buffer, int size, int dim, int* shape, char* host_adr
     }
 
     // send buffer to host
-    socket_conf->wc = send(socket_conf->fd, buffer, size * sizeof(float), 0);
-    if (socket_conf->wc < 0) {
-        printf("\n Send buf size to host failed! \n");
-        goto fail;
-    }
-    printf("Buffer of size %i bytes sent to host! \n", socket_conf->wc);
+    int total_bytes = size * sizeof(float);
+    int bytes_left = total_bytes;
+    char *buf_ptr = (char *)buffer;
 
+    while (bytes_left > 0) {
+        socket_conf->wc = send(socket_conf->fd, buf_ptr, bytes_left, 0);
+        if (socket_conf->wc < 0) {
+            perror("send failed");
+            break;
+        }
+        printf("Sent %d bytes\n", socket_conf->wc);
+
+        bytes_left -= socket_conf->wc;
+        buf_ptr += socket_conf->wc;
+    }
+    printf("close connection\n");
     close(socket_conf->fd);
     free(socket_conf);
     return EXIT_SUCCESS;
@@ -187,12 +196,22 @@ int host_recv_buffer(struct tensor *new_tensor) {
         goto fail;
     }
 
-    // read data from dpu into host buffer
-    socket_conf->rc = read(socket_conf->dpu_socket, new_tensor->buffer, new_tensor->size * sizeof(float));
-    if (socket_conf->rc < 0) {
-        printf("\n Failed to read buffer from host! \n");
-        close(socket_conf->dpu_socket);
-        goto fail;
+    int total_bytes = new_tensor->size * sizeof(float);
+    int bytes_left = total_bytes;
+    char *buf_ptr = (char *)new_tensor->buffer;
+
+    while (bytes_left > 0) {
+        socket_conf->rc = read(socket_conf->dpu_socket, buf_ptr, bytes_left);
+        if (socket_conf->rc < 0) {
+            perror("read failed");
+            goto fail;
+        } else if (socket_conf->rc == 0) {
+            // Connection closed by peer
+            break;
+        }
+
+        bytes_left -= socket_conf->rc;
+        buf_ptr += socket_conf->rc;
     }
     
     close(socket_conf->dpu_socket);

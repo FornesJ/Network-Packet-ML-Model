@@ -1,8 +1,10 @@
 import torch
 import ctypes
+import os
+from dotenv import load_dotenv
 
 class DPUSocket:
-    def __init__(self, so_file, host_address):
+    def __init__(self, so_file, localhost=True):
         self.socket_transfer = ctypes.CDLL(so_file)
         self.dpu_send_buffer = self.socket_transfer.dpu_send_buffer
         self.dpu_send_buffer.argtypes = [ctypes.POINTER(ctypes.c_float), 
@@ -11,8 +13,14 @@ class DPUSocket:
                                         ctypes.POINTER(ctypes.c_int), 
                                         ctypes.c_char_p]
         self.dpu_send_buffer.restype = ctypes.c_int # int return type
-        self.address = host_address
-    
+
+        # Load environment variables from the .env file
+        load_dotenv()
+        if localhost:
+            self.address = os.getenv("LOCALHOST")
+        else:
+            self.address = os.getenv("HOST_IP")
+
     def send(self, tensor):
         # get tensor dim, shape and size
         dim = tensor.dim()
