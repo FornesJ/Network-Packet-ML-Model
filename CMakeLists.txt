@@ -12,18 +12,12 @@ set(APP_PATH /home/jorgetf/testmodel/Network-Packet-ML-Model/dma_transfer)
 
 add_executable(dma_host ${APP_PATH}/dma_copy_host.c)
 target_link_libraries(dma_host
-    ${DOCA_SDK_PATH}/lib/libdoca_mmap.so
-    ${DOCA_SDK_PATH}/lib/libdoca_buffer.so
-    ${DOCA_SDK_PATH}/lib/libdoca_error.so
+    ${DOCA_SDK_PATH}/lib/x86_64-linux-gnu/libdoca_common.so
+    ${DOCA_SDK_PATH}/lib/x86_64-linux-gnu/libdoca_dma.so
 )
 
 add_executable(dma_dpu ${APP_PATH}/dma_copy_dpu.c)
 target_link_libraries(dma_dpu
-    ${DOCA_SDK_PATH}/lib/libdoca_mmap.so
-    ${DOCA_SDK_PATH}/lib/libdoca_buffer.so
-    ${DOCA_SDK_PATH}/lib/libdoca_dev.so
-    ${DOCA_SDK_PATH}/lib/libdoca_dma.so
-    ${DOCA_SDK_PATH}/lib/libdoca_pe.so
-    ${DOCA_SDK_PATH}/lib/libdoca_error.so
+    ${DOCA_SDK_PATH}/lib/x86_64-linux-gnu/libdoca_common.so
+    ${DOCA_SDK_PATH}/lib/x86_64-linux-gnu/libdoca_dma.so
 )
-
