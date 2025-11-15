@@ -1,89 +1,122 @@
-#include <doca_ctx.h>
-#include <doca_pe.h>
-#include <doca_mmap.h>
-#include <doca_dma.h>
-#include <doca_error.h>
-#include <doca_argp.h>
-#include <doca_dev.h>
-#include <doca_log.h>
+/*
+ * dma_copy_host.c
+ * Host side of DOCA 2.7 D2H2D DMA example (local DRAM)
+ *
+ * Usage:
+ *   sudo ./dma_copy_host <device_index>
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
+#include <unistd.h>
+#include <doca_ctx.h>
+#include <doca_dev.h>
+#include <doca_mmap.h>
+#include <doca_buf.h>
+#include <doca_dma.h>
+#include <doca_error.h>
 
-#define MAX_USER_ARG_SIZE 256		     /* Maximum size of user input argument */
-#define MAX_ARG_SIZE (MAX_USER_ARG_SIZE + 1) /* Maximum size of input argument */
-#define MAX_USER_TXT_SIZE 4096		     /* Maximum size of user input text */
-#define MAX_TXT_SIZE (MAX_USER_TXT_SIZE + 1) /* Maximum size of input text */
-#define PAGE_SIZE sysconf(_SC_PAGESIZE)	     /* Page size */
-#define NUM_DMA_TASKS (1)		     /* DMA tasks number */
-
-/* DOCA core objects used by the samples / applications */
-struct program_core_objects {
-	struct doca_dev *dev;		    /* doca device */
-	struct doca_mmap *src_mmap;	    /* doca mmap for source buffer */
-	struct doca_mmap *dst_mmap;	    /* doca mmap for destination buffer */
-	struct doca_buf_inventory *buf_inv; /* doca buffer inventory */
-	struct doca_ctx *ctx;		    /* doca context */
-	struct doca_pe *pe;		    /* doca progress engine */
-};
-
-/* Configuration struct */
-struct dma_config {
-	char pci_address[DOCA_DEVINFO_PCI_ADDR_SIZE]; /* PCI device address */
-	char cpy_txt[MAX_TXT_SIZE];		      /* Text to copy between the two local buffers */
-	char export_desc_path[MAX_ARG_SIZE];	      /* Path to save/read the exported descriptor file */
-	char buf_info_path[MAX_ARG_SIZE];	      /* Path to save/read the buffer information file */
-	int num_src_buf;			      /* Number of linked_list doca_buf element for the source buffer */
-	int num_dst_buf; /* Number of linked_list doca_buf element for the destination buffer */
-};
-
-struct dma_resources {
-	struct program_core_objects state; /* Core objects that manage our "state" */
-	struct doca_dma *dma_ctx;	   /* DOCA DMA context */
-	size_t num_remaining_tasks;	   /* Number of remaining tasks to process */
-	bool run_pe_progress;		   /* Should we keep on progressing the PE? */
-};
-
-doca_error_t dma_copy_host(const char *pcie_addr,
-			   char *src_buffer,
-			   size_t src_buffer_size,
-			   char *export_desc_file_path,
-			   char *buffer_info_file_name)
-{
-    struct program_core_objects state = {0};
-	const void *export_desc;
-	size_t export_desc_len;
-	int enter = 0;
-	doca_error_t result, tmp_result;
-
-    return result;
-}
+#define BUF_SIZE 4096
 
 int main(int argc, char **argv) {
-    struct dma_config dma_conf;
-	char *src_buffer;
-	size_t length;
-	doca_error_t result;
-	int exit_status = EXIT_FAILURE;
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <device_index>\n", argv[0]);
+        return 1;
+    }
 
-    /* Set the default configuration values (Example values) */
-	strcpy(dma_conf.pci_address, "c1:00.0"); // getenv("PCIe_ADDR")
-	strcpy(dma_conf.cpy_txt, "This is a sample piece of text");
-	strcpy(dma_conf.export_desc_path, "/tmp/export_desc.txt");
-	strcpy(dma_conf.buf_info_path, "/tmp/buffer_info.txt");
+    int dev_idx = atoi(argv[1]);
+    doca_error_t rc;
 
-	length = strlen(dma_conf.cpy_txt) + 1;
-	src_buffer = (char *)malloc(length);
-	if (src_buffer == NULL) {
-		printf("Source buffer allocation failed");
-		return EXIT_FAILURE;
-	}
+    /* --- 1) Discover & open device --- */
+    struct doca_devinfo_list *dev_list = NULL;
+    struct doca_dev *dev = NULL;
+    struct doca_ctx *ctx = NULL;
 
-	memcpy(src_buffer, dma_conf.cpy_txt, length);
+    rc = doca_devinfo_list_create(&dev_list);
+    if (rc != DOCA_SUCCESS) { fprintf(stderr,"devinfo_list_create failed\n"); return 2; }
+    rc = doca_devinfo_list_refresh(dev_list);
+    if (rc != DOCA_SUCCESS) { fprintf(stderr,"devinfo_list_refresh failed\n"); return 2; }
 
-	printf("%s\n", src_buffer);
+    struct doca_devinfo *di = NULL;
+    rc = doca_devinfo_list_get(dev_list, dev_idx, &di);
+    if (rc != DOCA_SUCCESS) { fprintf(stderr,"devinfo_list_get failed\n"); return 2; }
 
-    free(src_buffer);
-    return EXIT_SUCCESS;
+    rc = doca_dev_open(di, &dev);
+    if (rc != DOCA_SUCCESS) { fprintf(stderr,"doca_dev_open failed\n"); return 2; }
+
+    rc = doca_ctx_create(&ctx);
+    if (rc != DOCA_SUCCESS) { fprintf(stderr,"ctx_create failed\n"); return 2; }
+
+    rc = doca_ctx_dev_add(ctx, dev);
+    if (rc != DOCA_SUCCESS) { fprintf(stderr,"ctx_dev_add failed\n"); return 2; }
+
+    rc = doca_ctx_start(ctx);
+    if (rc != DOCA_SUCCESS) { fprintf(stderr,"ctx_start failed\n"); return 2; }
+
+    /* --- 2) Allocate destination buffer on host --- */
+    void *dst = NULL;
+    if (posix_memalign(&dst, sysconf(_SC_PAGESIZE), BUF_SIZE) != 0) {
+        perror("posix_memalign");
+        return 2;
+    }
+    memset(dst, 0, BUF_SIZE);
+
+    struct doca_mmap *mmap_dst = NULL;
+    struct doca_buf *buf_dst = NULL;
+
+    rc = doca_mmap_create(&mmap_dst);
+    rc |= doca_mmap_set_memrange(mmap_dst, dst, BUF_SIZE);
+    rc |= doca_mmap_start(mmap_dst);
+    rc |= doca_buf_create(mmap_dst, dst, BUF_SIZE, &buf_dst);
+    if (rc != DOCA_SUCCESS) { fprintf(stderr,"Buffer setup failed\n"); return 2; }
+
+    /* --- 3) Create DMA memcpy task --- */
+    struct doca_task *task = NULL;
+
+    rc = doca_dma_task_memcpy_set_conf(ctx, NULL, NULL, 0); // default config
+    if (rc != DOCA_SUCCESS) { fprintf(stderr,"task_memcpy_set_conf failed\n"); return 2; }
+
+    rc = doca_task_alloc(ctx, DOCA_DMA_TASK_MEMCPY, &task);
+    if (rc != DOCA_SUCCESS) { fprintf(stderr,"task_alloc failed\n"); return 2; }
+
+    /* In D2H2D, host receives data from DPU; buf_src is DPU buffer, simulated here */
+    void *sim_dpu_src = NULL;
+    posix_memalign(&sim_dpu_src, sysconf(_SC_PAGESIZE), BUF_SIZE);
+    const char msg[] = "Hello from DPU!";
+    strncpy((char*)sim_dpu_src, msg, sizeof(msg));
+
+    struct doca_mmap *mmap_src = NULL;
+    struct doca_buf *buf_src = NULL;
+    doca_mmap_create(&mmap_src);
+    doca_mmap_set_memrange(mmap_src, sim_dpu_src, BUF_SIZE);
+    doca_mmap_start(mmap_src);
+    doca_buf_create(mmap_src, sim_dpu_src, BUF_SIZE, &buf_src);
+
+    /* set source and destination buffers for DMA task */
+    doca_task_memcpy_set_buffers(task, buf_src, buf_dst, BUF_SIZE);
+
+    /* --- 4) Submit task and wait synchronously --- */
+    rc = doca_task_submit(task);
+    if (rc != DOCA_SUCCESS) { fprintf(stderr,"task_submit failed\n"); return 2; }
+
+    rc = doca_task_wait(task); // blocks until DMA completes
+    if (rc != DOCA_SUCCESS) { fprintf(stderr,"task_wait failed\n"); return 2; }
+
+    /* --- 5) Verify buffer --- */
+    printf("Host received buffer: '%s'\n", (char*)dst);
+
+    /* --- 6) Cleanup --- */
+    if (task) doca_task_free(task);
+    if (buf_src) doca_buf_destroy(buf_src);
+    if (buf_dst) doca_buf_destroy(buf_dst);
+    if (mmap_src) doca_mmap_destroy(mmap_src);
+    if (mmap_dst) doca_mmap_destroy(mmap_dst);
+    if (sim_dpu_src) free(sim_dpu_src);
+    if (dst) free(dst);
+    if (ctx) { doca_ctx_stop(ctx); doca_ctx_destroy(ctx); }
+    if (dev) doca_dev_close(dev);
+    if (dev_list) doca_devinfo_list_destroy(dev_list);
+
+    return 0;
 }
