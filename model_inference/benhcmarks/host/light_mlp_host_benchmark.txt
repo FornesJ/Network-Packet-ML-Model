@@ -5,17 +5,16 @@ Avg memory usage: 0.227MB
 Peak memory usage: 2.515MB
 
 Model inference latency on one batch (batch size = 128):
-Avg latency: 0.172ms
-Min latency: 0.158ms
-Max latency: 0.940ms
+Avg latency: 0.161ms
+Min latency: 0.156ms
+Max latency: 0.193ms
 
 Model inference throughput (batch size = 128):
-Throughput: 106536.66 samples/sec
+Throughput: 102441.09 samples/sec
 
-CPU usage per thread:
-Avg CPU usage: 25.7%
-Max CPU usage: 89.9%
-Number of threads used: 186.0
+Model inference CPU usage (number of logical cores):
+Average CPU usage: 2.86/96 cores
+Max CPU usage: 3.19/96 cores
 
 Model (light_mlp) inference accuracy (%):
 Accuracy: 70.31%
