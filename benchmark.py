@@ -76,8 +76,9 @@ class Benchmark:
         cpu_used = (end_cpu.user + end_cpu.system) - (start_cpu.user + start_cpu.system)
         elapsed = end_time - start_time
 
-        self.results.append(f"Model inference CPU usage (number of logical cores):")
-        self.results.append(f"Average CPU usage during runtime of {elapsed:.2f} seconds: {cpu_used / elapsed:.2f}/{psutil.cpu_count()} cores")
+        self.results.append(f"Model inference CPU usage (number of logical cores) during runtime:")
+        self.results.append(f"CPU runtime: {elapsed:.2f} seconds")
+        self.results.append(f"Average CPU usage: {cpu_used / elapsed:.2f}/{psutil.cpu_count()} cores\n")
 
     def memory_usage(self, warmup=10, runs=10):
         self.model.model.eval()
