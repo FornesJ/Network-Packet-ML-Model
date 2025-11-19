@@ -52,27 +52,32 @@ class Benchmark:
         self.results.append(f"Model inference throughput (batch size = {self.batch_size}):")
         self.results.append(f"Throughput: {count / elapsed:.2f} samples/sec\n")
 
-    def cpu_usage(self, warmup=10, runs=50, interval=0.1):
+    def cpu_usage(self, warmup=10, runs=50):
         self.model.model.eval()
 
-        p = psutil.Process()
+        process = psutil.Process()
 
         with torch.no_grad():
             for _ in range(warmup):
                 data, labels = next(iter(self.loader))
                 pred = self.model.model(data)
 
-        cpu_samples = []
-
+        start_cpu = process.cpu_times()
+        start_time = time.time()
+        
         with torch.no_grad():
             for _ in range(runs):
                 data, labels = next(iter(self.loader))
                 pred = self.model.model(data)
-                cpu_samples.append(p.cpu_percent(interval=interval))
+
+        end_cpu = process.cpu_times()
+        end_time = time.time()
+
+        cpu_used = (end_cpu.user + end_cpu.system) - (start_cpu.user + start_cpu.system)
+        elapsed = end_time - start_time
 
         self.results.append(f"Model inference CPU usage (number of logical cores):")
-        self.results.append(f"Average CPU usage: {(sum(cpu_samples)/len(cpu_samples))/100:.2f}/{psutil.cpu_count()} cores")
-        self.results.append(f"Max CPU usage: {max(cpu_samples)/100:.2f}/{psutil.cpu_count()} cores\n")
+        self.results.append(f"Average CPU usage during runtime of {elapsed:.2f} seconds: {cpu_used / elapsed:.2f}/{psutil.cpu_count()} cores")
 
     def memory_usage(self, warmup=10, runs=10):
         self.model.model.eval()

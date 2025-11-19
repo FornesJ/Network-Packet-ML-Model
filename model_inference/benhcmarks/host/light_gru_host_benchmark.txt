@@ -5,17 +5,16 @@ Avg memory usage: 66.017MB
 Peak memory usage: 962.148MB
 
 Model inference latency on one batch (batch size = 128):
-Avg latency: 118.036ms
-Min latency: 97.436ms
-Max latency: 184.053ms
+Avg latency: 110.879ms
+Min latency: 92.817ms
+Max latency: 151.648ms
 
 Model inference throughput (batch size = 128):
-Throughput: 1099.49 samples/sec
+Throughput: 1192.41 samples/sec
 
-CPU usage per thread:
-Avg CPU usage: 25.3%
-Max CPU usage: 26.6%
-Number of threads used: 186.0
+Model inference CPU usage (number of logical cores):
+Average CPU usage: 3.46/96 cores
+Max CPU usage: 4.39/96 cores
 
 Model (light_gru) inference accuracy (%):
 Accuracy: 92.19%

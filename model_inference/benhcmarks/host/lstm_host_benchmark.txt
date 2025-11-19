@@ -5,17 +5,16 @@ Avg memory usage: 102.481MB
 Peak memory usage: 1296.274MB
 
 Model inference latency on one batch (batch size = 128):
-Avg latency: 535.270ms
-Min latency: 509.086ms
-Max latency: 624.202ms
+Avg latency: 545.548ms
+Min latency: 518.712ms
+Max latency: 623.220ms
 
 Model inference throughput (batch size = 128):
-Throughput: 242.35 samples/sec
+Throughput: 235.34 samples/sec
 
-CPU usage per thread:
-Avg CPU usage: 22.2%
-Max CPU usage: 25.0%
-Number of threads used: 186.0
+Model inference CPU usage (number of logical cores):
+Average CPU usage: 2.11/96 cores
+Max CPU usage: 2.89/96 cores
 
 Model (lstm) inference accuracy (%):
 Accuracy: 99.22%
