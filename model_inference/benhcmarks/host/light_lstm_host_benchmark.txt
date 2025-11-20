@@ -1,0 +1,23 @@
+Benchmark - light_lstm model:
+
+Memory usage (MB):
+Avg memory usage: 13.559MB
+Peak memory usage: 164.512MB
+
+Model inference latency on one batch (batch size = 128):
+Avg latency: 120.753ms
+Min latency: 96.489ms
+Max latency: 158.523ms
+
+Model inference throughput (batch size = 128):
+Throughput: 990.22 samples/sec
+
+Model inference CPU usage (number of logical cores) during runtime:
+CPU runtime: 4.99 seconds
+Average CPU usage: 47.99/96 cores
+
+Model (light_lstm) inference accuracy (%):
+Accuracy: 90.62%
+
+
+

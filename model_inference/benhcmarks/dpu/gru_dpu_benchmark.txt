@@ -1,0 +1,23 @@
+Benchmark - gru model:
+
+Memory usage (MB):
+Avg memory usage: 456.072MB
+Peak memory usage: 7695.742MB
+
+Model inference latency on one batch (batch size = 128):
+Avg latency: 4733.904ms
+Min latency: 4579.036ms
+Max latency: 5659.892ms
+
+Model inference throughput (batch size = 128):
+Throughput: 27.53 samples/sec
+
+Model inference CPU usage (number of logical cores) during runtime:
+CPU runtime: 237.99 seconds
+Average CPU usage: 6.67/8 cores
+
+Model (gru) inference accuracy (%):
+Accuracy: 99.22%
+
+
+
