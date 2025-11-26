@@ -1,0 +1,23 @@
+Benchmark - dpu_gru model:
+
+Memory usage (MB):
+Avg memory usage: 131.554MB
+Peak memory usage: 1924.492MB
+
+Model inference latency on one batch (batch size = 128):
+Avg latency: 1160.494ms
+Min latency: 1096.902ms
+Max latency: 1947.028ms
+
+Model inference throughput (batch size = 128):
+Throughput: 113.01 samples/sec
+
+Model inference CPU usage (number of logical cores) during runtime:
+CPU runtime: 58.93 seconds
+Average CPU usage: 6.52/8 cores
+
+Model (dpu_gru) inference accuracy (%):
+Accuracy: 98.44%
+
+
+

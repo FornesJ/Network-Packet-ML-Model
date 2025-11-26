@@ -1,0 +1,23 @@
+Benchmark - dpu_mlp model:
+
+Memory usage (MB):
+Avg memory usage: 0.534MB
+Peak memory usage: 2.515MB
+
+Model inference latency on one batch (batch size = 128):
+Avg latency: 5.748ms
+Min latency: 2.406ms
+Max latency: 26.769ms
+
+Model inference throughput (batch size = 128):
+Throughput: 14291.15 samples/sec
+
+Model inference CPU usage (number of logical cores) during runtime:
+CPU runtime: 0.41 seconds
+Average CPU usage: 3.05/8 cores
+
+Model (dpu_mlp) inference accuracy (%):
+Accuracy: 82.81%
+
+
+
