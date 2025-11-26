@@ -1,0 +1,23 @@
+Benchmark - host_mlp model:
+
+Memory usage (MB):
+Avg memory usage: 0.458MB
+Peak memory usage: 1.680MB
+
+Model inference latency on one batch (batch size = 128):
+Avg latency: 0.586ms
+Min latency: 0.524ms
+Max latency: 0.792ms
+
+Model inference throughput (batch size = 128):
+Throughput: 88140.80 samples/sec
+
+Model inference CPU usage (number of logical cores) during runtime:
+CPU runtime: 0.07 seconds
+Average CPU usage: 49.02/96 cores
+
+Model (host_mlp) inference accuracy (%):
+Accuracy: 55.47%
+
+
+
