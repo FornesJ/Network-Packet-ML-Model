@@ -116,36 +116,6 @@ class Benchmark:
         with torch.no_grad():
             for _ in range(runs):
                 data, labels = next(iter(self.loader))
-                pred = self.model.model(data)
-
-                y_true.append(labels)
-                y_pred.append(pred)
-        
-        y_true, y_pred = torch.cat(y_true, dim=0), torch.cat(y_pred, dim=0)
-        
-        acc = (pred.argmax(dim=1) == labels).float().mean()
-
-        self.results.append(f"Model ({self.model_name}) inference accuracy (%):")
-        self.results.append(f"Accuracy: {acc*100:.2f}%\n\n\n")
-
-
-
-
-
-
-
-
-class BenchmarkSplitModel(Benchmark):
-    def __init__(self, model, model_path, loader, batch_size, model_name):
-        super().__init__(model, model_path, loader, batch_size, model_name)
-
-    def accuracy(self, runs=100):
-        self.model.model.eval()
-        y_true, y_pred = [], []
-
-        with torch.no_grad():
-            for _ in range(runs):
-                data, labels = next(iter(self.loader))
                 _, pred = self.model.model(data)
 
                 y_true.append(labels)

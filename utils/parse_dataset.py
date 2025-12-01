@@ -89,16 +89,45 @@ def split_datasets(X, y, val_size=0.1, test_size=0.2):
 
     return X_train, y_train, X_val, y_val, X_test, y_test
 
-def binary_dataset(labels, label_dict):
-    binary_labels = []
-    label_names = list(label_dict.keys())
-    for label in labels:
-        if label_names[label] == "Normal":
-            binary_labels.append(0)
-        else:
-            binary_labels.append(1)
-    y_binary = torch.tensor(binary_labels, dtype=torch.float)
-    return y_binary
+def load_datasets(dataset_path, model_type):
+    """
+    Function loads datasets from dataset files
+    Args:
+        dataset_path (string): path to datasets
+        model_type (string): type of model
+    Returns:
+        tuple: (X_train, y_train, X_test, y_test, X_val, y_val)
+    """
+    # load train, val and test datasets
+    train_dataset_file = os.path.join(dataset_path, "train_dataset.pt")
+    X_train, y_train = torch.load(train_dataset_file)
+
+    val_dataset_file = os.path.join(dataset_path, "val_dataset.pt")
+    X_val, y_val = torch.load(val_dataset_file)
+
+    test_dataset_file = os.path.join(dataset_path, "test_dataset.pt")
+    X_test, y_test = torch.load(test_dataset_file)
+
+    # unsqueeze tensor to fit rnn models
+    if model_type != "mlp" and model_type != "light_mlp":
+        X_train, X_val, X_test = X_train.unsqueeze(-1), X_val.unsqueeze(-1), X_test.unsqueeze(-1)
+    
+    return X_train, y_train, X_val, y_val, X_test, y_test
+
+def get_label_dict(dataset_path):
+    """
+    Function loads label dict from dataset folder
+    Args:
+        dataset_path (string): path to datasets
+    Returns:
+        label_dict (dict): dict containing labels and respective indexes
+    """
+    json_file = os.path.join(dataset_path, "label_index.json")
+    with open(json_file, 'r') as file:
+        label_dict = json.load(file)
+
+    return label_dict
+
 
 if __name__ == "__main__":
     # extract dataset from csv file
