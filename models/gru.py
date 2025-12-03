@@ -62,13 +62,13 @@ class GRU(nn.Module):
             out (torch.tensor): prediction output from linear layers
         """
         if h0 is None:
-            h0 = torch.zeros(2*self.num_layers, x.shape[0], self.h_size).to(self.device)
+            h0 = torch.zeros(2*self.n_layers, x.shape[0], self.h_size).to(self.device)
         
         _, h0 = self.gru(x, h0)  # output: [B, T, 2*h_size]
 
         # take last layer's hidden state (both directions)
         # h0 shape: [num_layers*2, B, size]
-        h_last = h0.view(self.num_layers, 2, x.shape[0], self.h_size)[-1]  # [2, B, h_size]
+        h_last = h0.view(self.n_layers, 2, x.shape[0], self.h_size)[-1]  # [2, B, h_size]
         h_last = torch.cat((h_last[0], h_last[1]), dim=1)  # [B, 2*h_size]
 
         # apply BN + FC

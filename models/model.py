@@ -1,4 +1,5 @@
 import torch
+from sklearn.metrics import balanced_accuracy_score
 
 class Model:
     """
@@ -8,6 +9,7 @@ class Model:
                 model, 
                 loss_function, 
                 conf,
+                checkpoint_path,
                 dpu_model=None,
                 dpu_model_path=None):
         """
@@ -31,6 +33,7 @@ class Model:
             gamma=conf.gamma)
         
         self.device = conf.device
+        self.checkpoint_path = checkpoint_path
 
         if dpu_model != None:
             dpu_model.load(dpu_model_path)
@@ -129,24 +132,25 @@ class Model:
         # evaluate accuracy
 
         acc = (y_pred.argmax(dim=1) == y_true).float().mean()
+        # bal_acc = balanced_accuracy_score(y_true=y_true, y_pred=y_pred.argmax(dim=1))
 
         return loss, acc
     
-    def load(self, checkpoint_path):
+    def load(self):
         """
         Method for loading model wights from checkpoint
         Args:
             checkpoint_path (string): path to checkpoint file
         """
-        checkpoint = torch.load(checkpoint_path, map_location=torch.device(device=self.device))
+        checkpoint = torch.load(self.checkpoint_path, map_location=torch.device(device=self.device))
 
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
 
-        print(f"Checkpoint loaded from {checkpoint_path}!")
+        print(f"Checkpoint loaded from {self.checkpoint_path}!")
 
-    def save(self, checkpoint_path):
+    def save(self):
         """
         Method for saving model weights
         Args:
@@ -158,8 +162,8 @@ class Model:
             "scheduler_state_dict": self.scheduler.state_dict()
         }
 
-        torch.save(checkpoint, checkpoint_path)
-        print(f"Checkpoint saved at {checkpoint_path}")
+        torch.save(checkpoint, self.checkpoint_path)
+        print(f"Checkpoint saved at {self.checkpoint_path}")
 
 
 

@@ -1,38 +1,45 @@
 import torch
 import torch.nn as nn
-from config import Config
-from ..loss_functions.loss import FocalLoss
-from ..models.model import Model
-from ..models.mlp import MLP
-from ..models.lstm import LSTM
-from ..models.gru import GRU
+import os
+from utils.config import Config
+from loss_functions.loss import FocalLoss
+from models.model import Model
+from models.mlp import MLP
+from models.lstm import LSTM
+from models.gru import GRU
 conf = Config()
 
 class MLP_Models:
-    def __init__(self):
+    def __init__(self, ):
 
         # full mlp model
         self.mlp_4 = Model(
-            model=MLP(i_size=conf.mlp_input_size, hidden_sizes=[384, 256, 128, 64], dropout=conf.dropout),
+            model=MLP(i_size=conf.mlp_input_size, 
+                      hidden_sizes=[512], 
+                      dropout=conf.dropout).to(conf.device),
             loss_function=FocalLoss(),
-            conf=conf
+            conf=conf,
+            checkpoint_path=os.path.join(conf.large_models_path, "checkpoint", "mlp_4.pth")
         )
 
         # light mlp models
         self.light_mlp_3 = Model(
-            model=MLP(i_size=conf.mlp_input_size, hidden_sizes=[384, 256, 128], dropout=conf.dropout),
+            model=MLP(i_size=conf.mlp_input_size, hidden_sizes=[256], dropout=conf.dropout).to(conf.device),
             loss_function=FocalLoss(),
-            conf=conf
+            conf=conf,
+            checkpoint_path=os.path.join(conf.distilled_models_path, "checkpoint", "mlp_3.pth")
         )
         self.light_mlp_2 = Model(
-            model=MLP(i_size=conf.mlp_input_size, hidden_sizes=[384, 256], dropout=conf.dropout),
+            model=MLP(i_size=conf.mlp_input_size, hidden_sizes=[128], dropout=conf.dropout).to(conf.device),
             loss_function=FocalLoss(),
-            conf=conf
+            conf=conf,
+            checkpoint_path=os.path.join(conf.distilled_models_path, "checkpoint", "mlp_2.pth")
         )
         self.light_mlp_1 = Model(
-            model=MLP(i_size=conf.mlp_input_size, hidden_sizes=[384], dropout=conf.dropout),
+            model=MLP(i_size=conf.mlp_input_size, hidden_sizes=[64], dropout=conf.dropout).to(conf.device),
             loss_function=FocalLoss(),
-            conf=conf
+            conf=conf,
+            checkpoint_path=os.path.join(conf.distilled_models_path, "checkpoint", "mlp_1.pth")
         )
 
 
@@ -45,9 +52,10 @@ class LSTM_Models:
                        n_layers=4, 
                        linear_sizes=[2*conf.hidden_size, conf.hidden_size], 
                        dropout=conf.dropout, 
-                       device=conf.device),
+                       device=conf.device).to(conf.device),
             loss_function=FocalLoss(),
-            conf=conf
+            conf=conf,
+            checkpoint_path=os.path.join(conf.large_models_path, "checkpoint", "lstm_4.pth")
         )
 
         # smaller lstm models 
@@ -57,9 +65,10 @@ class LSTM_Models:
                        n_layers=3, 
                        linear_sizes=[2*conf.light_hidden_size], 
                        dropout=conf.dropout, 
-                       device=conf.device),
-            oss_function=FocalLoss(),
-            conf=conf
+                       device=conf.device).to(conf.device),
+            loss_function=FocalLoss(),
+            conf=conf,
+            checkpoint_path=os.path.join(conf.distilled_models_path, "checkpoint", "lstm_3.pth")
         )
         self.light_lstm_2 = Model(
             model=LSTM(i_size=conf.rnn_input_size, 
@@ -67,9 +76,10 @@ class LSTM_Models:
                        n_layers=2, 
                        linear_sizes=[2*conf.light_hidden_size], 
                        dropout=conf.dropout, 
-                       device=conf.device),
-            oss_function=FocalLoss(),
-            conf=conf
+                       device=conf.device).to(conf.device),
+            loss_function=FocalLoss(),
+            conf=conf,
+            checkpoint_path=os.path.join(conf.distilled_models_path, "checkpoint", "lstm_2.pth")
         )
         self.light_lstm_1 = Model(
             model=LSTM(i_size=conf.rnn_input_size, 
@@ -77,9 +87,10 @@ class LSTM_Models:
                        n_layers=1, 
                        linear_sizes=[2*conf.light_hidden_size], 
                        dropout=conf.dropout, 
-                       device=conf.device),
-            oss_function=FocalLoss(),
-            conf=conf
+                       device=conf.device).to(conf.device),
+            loss_function=FocalLoss(),
+            conf=conf,
+            checkpoint_path=os.path.join(conf.distilled_models_path, "checkpoint", "lstm_1.pth")
         )
 
 
@@ -91,9 +102,10 @@ class GRU_Models:
                        n_layers=4, 
                        linear_sizes=[2*conf.hidden_size, conf.hidden_size], 
                        dropout=conf.dropout, 
-                       device=conf.device),
+                       device=conf.device).to(conf.device),
             loss_function=FocalLoss(),
-            conf=conf
+            conf=conf,
+            checkpoint_path=os.path.join(conf.large_models_path, "checkpoint", "gru_4.pth")
         )
 
         # smaller lstm models 
@@ -103,9 +115,10 @@ class GRU_Models:
                        n_layers=3, 
                        linear_sizes=[2*conf.light_hidden_size], 
                        dropout=conf.dropout, 
-                       device=conf.device),
-            oss_function=FocalLoss(),
-            conf=conf
+                       device=conf.device).to(conf.device),
+            loss_function=FocalLoss(),
+            conf=conf,
+            checkpoint_path=os.path.join(conf.distilled_models_path, "checkpoint", "gru_3.pth")
         )
         self.light_gru_2 = Model(
             model=GRU(i_size=conf.rnn_input_size, 
@@ -113,9 +126,10 @@ class GRU_Models:
                        n_layers=2, 
                        linear_sizes=[2*conf.light_hidden_size], 
                        dropout=conf.dropout, 
-                       device=conf.device),
-            oss_function=FocalLoss(),
-            conf=conf
+                       device=conf.device).to(conf.device),
+            loss_function=FocalLoss(),
+            conf=conf,
+            checkpoint_path=os.path.join(conf.distilled_models_path, "checkpoint", "gru_2.pth")
         )
         self.light_gru_1 = Model(
             model=GRU(i_size=conf.rnn_input_size, 
@@ -123,7 +137,8 @@ class GRU_Models:
                        n_layers=1, 
                        linear_sizes=[2*conf.light_hidden_size], 
                        dropout=conf.dropout, 
-                       device=conf.device),
-            oss_function=FocalLoss(),
-            conf=conf
+                       device=conf.device).to(conf.device),
+            loss_function=FocalLoss(),
+            conf=conf,
+            checkpoint_path=os.path.join(conf.distilled_models_path, "checkpoint", "gru_1.pth")
         )

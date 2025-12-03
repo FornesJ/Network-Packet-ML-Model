@@ -5,13 +5,30 @@ from torch.profiler import profiler
 
 
 class Benchmark:
-    def __init__(self, model, model_path, loader, batch_size, model_name):
+    def __init__(self, model, loader, batch_size, model_name, result_path):
         self.model = model
-        self.model.load(model_path)
+        self.model.load()
         self.loader = loader
         self.batch_size = batch_size
         self.model_name = model_name
+        self.result_path = result_path
         self.results = [f"Benchmark - {model_name} model:\n"]
+    
+    def __call__(self):
+        self.memory_usage()
+        self.latency()
+        self.throughput()
+        self.cpu_usage()
+        self.accuracy()
+
+    def print_result(self):
+        for line in self.results:
+            print(line)
+
+    def save(self):
+        with open(self.result_path, "w") as f:
+            for line in self.results:
+                f.writelines(line + "\n")
 
     def latency(self, warmup=10, runs=100):
         self.model.model.eval()
