@@ -1,5 +1,5 @@
 import torch
-from sklearn.metrics import balanced_accuracy_score
+import torch.nn as nn
 
 class Model:
     """
@@ -26,11 +26,13 @@ class Model:
         self.optimizer = torch.optim.AdamW(
             self.model.parameters(), 
             lr=conf.learning_rate, 
-            weight_decay=conf.weight_decay)
+            weight_decay=conf.weight_decay
+        )
         
         self.scheduler = torch.optim.lr_scheduler.ExponentialLR(
             self.optimizer, 
-            gamma=conf.gamma)
+            gamma=conf.gamma
+        )
         
         self.device = conf.device
         self.checkpoint_path = checkpoint_path

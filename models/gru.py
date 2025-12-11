@@ -24,7 +24,7 @@ class GRU(nn.Module):
         rnn_dropout = dropout if n_layers > 1 else 0.0 # can not have dropout with only one rnn layer
 
         # define gru layers
-        self.gru = nn.GRU(
+        self.rnn = nn.GRU(
             input_size=i_size,
             hidden_size=h_size,
             num_layers=n_layers,
@@ -33,7 +33,7 @@ class GRU(nn.Module):
             bidirectional=True
         )
 
-        self.bn = nn.BatchNorm1d(2 * h_size) # add batch norm
+        self.bn1 = nn.BatchNorm1d(2 * h_size) # add batch norm
 
         # define linear layers
         layers = []
@@ -42,45 +42,49 @@ class GRU(nn.Module):
         for h in linear_sizes:
             layers.append(nn.Sequential(
                 nn.Linear(in_dim, h),
-                nn.BatchNorm1d(h),
                 nn.ReLU(),
                 nn.Dropout(dropout)
             ))
             in_dim = h
         
         self.linear = nn.ModuleList(layers)
+        self.bn2 = nn.BatchNorm1d(in_dim)
         self.output = nn.Linear(in_dim, 24)
 
-    def forward(self, x, h0=None):
+    def forward(self, x, h0=None, feat=False):
         """
         Forward method to model
         Args:
             x (torch.tensor): input tensor
             h0 (torch.tensor): initial hidden state should be zero or None
+            seq (boolean): if true: return all states else: return last state as embedding
         Returns:
-            features (torch.tensor): features from rnn layers
+            embeddings / sequence (torch.tensor): last state / all states from rnn layers
             out (torch.tensor): prediction output from linear layers
         """
         if h0 is None:
             h0 = torch.zeros(2*self.n_layers, x.shape[0], self.h_size).to(self.device)
         
-        _, h0 = self.gru(x, h0)  # output: [B, T, 2*h_size]
+        sequence, h0 = self.rnn(x, h0)  # sequence: [B, T, 2*h_size]
 
         # take last layer's hidden state (both directions)
         # h0 shape: [num_layers*2, B, size]
         h_last = h0.view(self.n_layers, 2, x.shape[0], self.h_size)[-1]  # [2, B, h_size]
-        h_last = torch.cat((h_last[0], h_last[1]), dim=1)  # [B, 2*h_size]
+        x = torch.cat((h_last[0], h_last[1]), dim=1)  # [B, 2*h_size]
 
         # apply BN + FC
-        h_last = self.bn(h_last)         # [B, 2*h_size] → batch norm
-        features = h_last.unsqueeze(1)
-        out = h_last
+        embeddings = x.unsqueeze(1)
+        x = self.bn1(x)         # [B, 2*h_size] → batch norm
 
         for layer in self.linear:
-            out = layer(out)
+            x = layer(x)
+        
+        x = self.bn2(x)
+        out = self.output(x)
 
-        out = self.output(out)
-
-        return features, out
+        if feat:
+            return [sequence], out
+        else:
+            return embeddings, out
 
 

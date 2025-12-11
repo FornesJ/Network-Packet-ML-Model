@@ -1,4 +1,6 @@
-torch==2.8.0
-datasets==4.0.0
-matplotlib==3.10.5
-polars==1.32.3
+torch
+numpy
+matplotlib
+scikit-learn
+psutils
+dotenv

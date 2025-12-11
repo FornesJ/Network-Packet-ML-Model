@@ -15,7 +15,7 @@ class MLP_Models:
         # full mlp model
         self.mlp_4 = Model(
             model=MLP(i_size=conf.mlp_input_size, 
-                      hidden_sizes=[512], 
+                      hidden_sizes=[512, 256, 128, 64], 
                       dropout=conf.dropout).to(conf.device),
             loss_function=FocalLoss(),
             conf=conf,
@@ -24,13 +24,13 @@ class MLP_Models:
 
         # light mlp models
         self.light_mlp_3 = Model(
-            model=MLP(i_size=conf.mlp_input_size, hidden_sizes=[256], dropout=conf.dropout).to(conf.device),
+            model=MLP(i_size=conf.mlp_input_size, hidden_sizes=[256, 128, 64], dropout=conf.dropout).to(conf.device),
             loss_function=FocalLoss(),
             conf=conf,
             checkpoint_path=os.path.join(conf.distilled_models_path, "checkpoint", "mlp_3.pth")
         )
         self.light_mlp_2 = Model(
-            model=MLP(i_size=conf.mlp_input_size, hidden_sizes=[128], dropout=conf.dropout).to(conf.device),
+            model=MLP(i_size=conf.mlp_input_size, hidden_sizes=[128, 64], dropout=conf.dropout).to(conf.device),
             loss_function=FocalLoss(),
             conf=conf,
             checkpoint_path=os.path.join(conf.distilled_models_path, "checkpoint", "mlp_2.pth")

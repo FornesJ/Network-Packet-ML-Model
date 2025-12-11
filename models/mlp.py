@@ -17,20 +17,21 @@ class MLP(nn.Module):
         # define linear layers
         layers = []
         in_dim = i_size
+        self.hidden_sizes = hidden_sizes
 
-        for h in hidden_sizes:
+        for h in self.hidden_sizes:
             layers.append(nn.Sequential(
                 nn.Linear(in_dim, h),
-                nn.BatchNorm1d(h),
                 nn.ReLU(),
                 nn.Dropout(dropout)
             ))
             in_dim = h
         
-        self.layers = nn.ModuleList(layers)
+        self.linear = nn.ModuleList(layers)
+        self.bn = nn.BatchNorm1d(in_dim) # add batch norm
         self.output = nn.Linear(in_dim, 24)
 
-    def forward(self, x):
+    def forward(self, x, feat=False):
         """
         Forward method to model
         Args:
@@ -39,11 +40,15 @@ class MLP(nn.Module):
             features (torch.tensor): features from rnn layers
             out (torch.tensor): prediction output from linear layers
         """
-        for layer in self.layers:
+        features = []
+        for layer in self.linear:
             x = layer(x)
+            features.append(x)
         
-        features = x              # final hidden representation
-        out = self.output(x)      # model prediction logits
+        if not feat:
+            features = features[-1] # final hidden representation
+        x = self.bn(x)              # batchnorm before output layer
+        out = self.output(x)        # model prediction logits
 
         return features, out
 
