@@ -10,8 +10,7 @@ class Model:
                 loss_function, 
                 conf,
                 checkpoint_path,
-                dpu_model=None,
-                dpu_model_path=None):
+                split_model=False):
         """
         Constructor for class
         Args:
@@ -22,9 +21,15 @@ class Model:
         """
         self.model = model
         self.criterion = loss_function
+        self.split_model = split_model
+
+        if self.split_model:
+            parameters = list(self.model.dpu_model.parameters()) + list(self.model.host_model.parameters())
+        else:
+            parameters = self.model.parameters()
 
         self.optimizer = torch.optim.AdamW(
-            self.model.parameters(), 
+            parameters, 
             lr=conf.learning_rate, 
             weight_decay=conf.weight_decay
         )
@@ -36,12 +41,6 @@ class Model:
         
         self.device = conf.device
         self.checkpoint_path = checkpoint_path
-
-        if dpu_model != None:
-            dpu_model.load(dpu_model_path)
-            self.dpu_model = dpu_model.model
-        else:
-            self.dpu_model = None
 
 
     def train(self, train_loader, val_loader, epochs):
@@ -60,9 +59,6 @@ class Model:
         train_loss_list = []
         val_loss_list = []
 
-        if self.dpu_model:
-            self.dpu_model.eval()
-
         for epoch in range(1, epochs + 1):
             self.model.train()
             running_loss = 0.0
@@ -71,12 +67,6 @@ class Model:
             for (data, labels) in train_loader:
                 if not data.is_cuda or not labels.is_cuda:
                     data, labels = data.to(self.device), labels.to(self.device)
-                
-                if self.dpu_model:
-                    with torch.no_grad():
-                        features, _ = self.dpu_model(data)
-                        features = features.detach()  # break the graph here
-                        data = features
                 
                 _, pred = self.model(data)
                 loss = self.criterion(pred, labels)
@@ -114,12 +104,6 @@ class Model:
         for (data, labels) in val_loader:
             if not data.is_cuda or not labels.is_cuda:
                 data, labels = data.to(self.device), labels.to(self.device)
-            
-            with torch.no_grad():
-                if self.dpu_model:
-                    features, _ = self.dpu_model(data)
-                    features = features.detach()  # break the graph here
-                    data = features
 
             with torch.no_grad():
                 _, pred = self.model(data)
@@ -132,7 +116,6 @@ class Model:
         loss = self.criterion(y_pred, y_true)
 
         # evaluate accuracy
-
         acc = (y_pred.argmax(dim=1) == y_true).float().mean()
         # bal_acc = balanced_accuracy_score(y_true=y_true, y_pred=y_pred.argmax(dim=1))
 
@@ -146,7 +129,11 @@ class Model:
         """
         checkpoint = torch.load(self.checkpoint_path, map_location=torch.device(device=self.device))
 
-        self.model.load_state_dict(checkpoint["model_state_dict"])
+        if self.split_model:
+            self.model.dpu_model.load_state_dict(checkpoint["dpu_model_state_dict"])
+            self.model.host_model.load_state_dict(checkpoint["host_model_state_dict"])
+        else:
+            self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
 
@@ -159,10 +146,15 @@ class Model:
             checkpoint_path (string): path to checkpoint file
         """
         checkpoint = {
-            "model_state_dict": self.model.state_dict(),
             "optimizer_state_dict": self.optimizer.state_dict(),
             "scheduler_state_dict": self.scheduler.state_dict()
         }
+
+        if self.split_model:
+            checkpoint["dpu_model_state_dict"] = self.model.dpu_model.state_dict()
+            checkpoint["host_model_state_dict"] = self.model.host_model.state_dict()
+        else:
+            checkpoint["model_state_dict"] = self.model.state_dict()
 
         torch.save(checkpoint, self.checkpoint_path)
         print(f"Checkpoint saved at {self.checkpoint_path}")
