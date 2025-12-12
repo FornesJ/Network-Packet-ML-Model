@@ -78,7 +78,8 @@ class Feature_Loss(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, pairs):
-        return sum(
-            F.mse_loss(s, t.detach()) for s, t in pairs
-        )
+    def forward(self, student_features, teacher_features):
+        loss = 0
+        for s, t in zip(student_features, teacher_features):
+            loss += F.mse_loss(s, t.detach())
+        return loss
