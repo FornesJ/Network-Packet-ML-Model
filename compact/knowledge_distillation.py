@@ -51,8 +51,12 @@ class KnowledgeDistillation:
         # if feature distillation: create attention adapter to reshape features from student and teacher
         if self.distillation == "feature":
             # Use adapter to match teacher and student hidden dimensions
+            assert self.student.model.n_layers == self.teacher.model.n_layers, \
+                "Teacher and student must have eaqual number of hidden layers!"
+
             if self.rnn:
-                s_sizes, t_sizes = [2 * self.student.model.h_size], [2 * self.teacher.model.h_size]
+                s_sizes = [2 * self.student.model.h_size for _ in range(self.student.model.n_layers)]
+                t_sizes = [2 * self.teacher.model.h_size for _ in range(self.teacher.model.n_layers)]
             else:
                 s_sizes, t_sizes = self.student.model.hidden_sizes, self.teacher.model.hidden_sizes
 

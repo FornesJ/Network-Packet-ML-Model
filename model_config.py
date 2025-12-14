@@ -101,6 +101,18 @@ class LSTM_Models:
             checkpoint_path=os.path.join(conf.checkpoint, "compressed_model", "light_lstm_1.pth")
         )
 
+        self.light_lstm_4 = Model(
+            model=LSTM(i_size=conf.rnn_input_size, 
+                       h_size=conf.light_hidden_size, 
+                       n_layers=4, 
+                       linear_sizes=[conf.light_hidden_size], 
+                       dropout=conf.dropout, 
+                       device=conf.device).to(conf.device),
+            loss_function=FocalLoss(),
+            conf=conf,
+            checkpoint_path=os.path.join(conf.checkpoint, "compressed_model", "light_lstm_4.pth")
+        )
+
         # split lstm model
         self.split_lstm_3 = Model(
             model=SplitModel(
@@ -209,6 +221,18 @@ class GRU_Models:
             loss_function=FocalLoss(),
             conf=conf,
             checkpoint_path=os.path.join(conf.checkpoint, "compressed_model", "light_gru_1.pth")
+        )
+
+        self.light_gru_4 = Model(
+            model=GRU(i_size=conf.rnn_input_size, 
+                       h_size=conf.light_hidden_size, 
+                       n_layers=4, 
+                       linear_sizes=[conf.light_hidden_size], 
+                       dropout=conf.dropout, 
+                       device=conf.device).to(conf.device),
+            loss_function=FocalLoss(),
+            conf=conf,
+            checkpoint_path=os.path.join(conf.checkpoint, "compressed_model", "light_gru_4.pth")
         )
 
         # split lstm model

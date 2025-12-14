@@ -61,7 +61,7 @@ class LSTM(nn.Module):
             feat (boolean): if true return all states, else return last state as embedding
             classify (boolean): if true return logits for classified output, else return None
         Returns:
-            embeddings | sequence (torch.tensor): last state | all states from rnn layers
+            embeddings | hidden_states (torch.tensor): last hidden state | hidden states from each lstm layers
             out (torch.tensor): prediction output from linear layers
         """
         if h0 is None or c0 is None:
@@ -69,18 +69,26 @@ class LSTM(nn.Module):
             c0 = torch.zeros(2*self.n_layers, x.shape[0], self.h_size).to(self.device)
         
         out = None
-        sequence, (h0, c0) = self.rnn(x, (h0, c0))  # sequence: [B, T, 2*h_size]
+        hidden_states = []            
+        output, (h0, c0) = self.rnn(x, (h0, c0))    # output: [B, T, 2*h_size]
 
-        # take last layer's hidden state (both directions)
         # h0 shape: [num_layers*2, B, size]
-        h_last = h0.view(self.n_layers, 2, x.shape[0], self.h_size)[-1]  # [2, B, h_size]
-        x = torch.cat((h_last[0], h_last[1]), dim=1)  # [B, 2*h_size]
+        h_states = h0.view(self.n_layers, 2, x.shape[0], self.h_size) # [num_layers, 2, B, h_size]
+        
+        # all hidden states from both directions
+        for layer in h_states:
+            h_state = torch.cat((layer[0], layer[1]), dim=1)  # [B, 2*h_size]
+            hidden_states.append(h_state)
 
-        embeddings = x.unsqueeze(1) # embedding of last hidden state
+        # last layer's hidden state
+        h_last = hidden_states[-1]
+
+        # unsqueeze last hidden state as embeddings
+        embeddings = h_last.unsqueeze(1)
 
         # apply BN + FC
         if classify:
-            x = self.bn1(x)         # [B, 2*h_size] → batch norm
+            x = self.bn1(h_last)         # [B, 2*h_size] → batch norm
 
             for layer in self.linear:
                 x = layer(x)
@@ -89,7 +97,7 @@ class LSTM(nn.Module):
             out = self.output(x)
 
         if feat:
-            return [sequence], out
+            return hidden_states, out
         else:
             return embeddings, out
 
