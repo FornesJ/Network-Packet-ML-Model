@@ -53,7 +53,7 @@ class MLP_Models:
         self.split_mlp_2 = Model(
             model=SplitModel(
                 dpu_model=MLP(i_size=conf.mlp_input_size, hidden_sizes=[512, 256], dropout=conf.dropout),
-                host_model=MLP(i_size=512, hidden_sizes=[128, 64], dropout=conf.dropout)
+                host_model=MLP(i_size=256, hidden_sizes=[128, 64], dropout=conf.dropout)
             ).to(conf.device),
             loss_function=FocalLoss(),
             conf=conf,
@@ -64,7 +64,7 @@ class MLP_Models:
         self.split_mlp_1 = Model(
             model=SplitModel(
                 dpu_model=MLP(i_size=conf.mlp_input_size, hidden_sizes=[512, 256, 128], dropout=conf.dropout),
-                host_model=MLP(i_size=512, hidden_sizes=[64], dropout=conf.dropout)
+                host_model=MLP(i_size=128, hidden_sizes=[64], dropout=conf.dropout)
             ).to(conf.device),
             loss_function=FocalLoss(),
             conf=conf,
@@ -122,7 +122,7 @@ class LSTM_Models:
                        linear_sizes=[], 
                        dropout=conf.dropout, 
                        device=conf.device),
-                host_model=LSTM(i_size=2*conf.hidden_size, 
+                host_model=LSTM(i_size=conf.rnn_input_size, 
                        h_size=conf.hidden_size, 
                        n_layers=3, 
                        linear_sizes=[conf.hidden_size], 
@@ -143,7 +143,7 @@ class LSTM_Models:
                        linear_sizes=[], 
                        dropout=conf.dropout, 
                        device=conf.device),
-                host_model=LSTM(i_size=2*conf.hidden_size, 
+                host_model=LSTM(i_size=conf.rnn_input_size, 
                        h_size=conf.hidden_size, 
                        n_layers=2, 
                        linear_sizes=[conf.hidden_size], 
@@ -164,7 +164,7 @@ class LSTM_Models:
                        linear_sizes=[], 
                        dropout=conf.dropout, 
                        device=conf.device),
-                host_model=LSTM(i_size=2*conf.hidden_size, 
+                host_model=LSTM(i_size=conf.rnn_input_size, 
                        h_size=conf.hidden_size, 
                        n_layers=1, 
                        linear_sizes=[conf.hidden_size], 
@@ -244,7 +244,7 @@ class GRU_Models:
                        linear_sizes=[], 
                        dropout=conf.dropout, 
                        device=conf.device),
-                host_model=GRU(i_size=2*conf.hidden_size, 
+                host_model=GRU(i_size=conf.rnn_input_size, 
                        h_size=conf.hidden_size, 
                        n_layers=3, 
                        linear_sizes=[conf.hidden_size], 
@@ -265,7 +265,7 @@ class GRU_Models:
                        linear_sizes=[], 
                        dropout=conf.dropout, 
                        device=conf.device),
-                host_model=GRU(i_size=2*conf.hidden_size, 
+                host_model=GRU(i_size=conf.rnn_input_size, 
                        h_size=conf.hidden_size, 
                        n_layers=2, 
                        linear_sizes=[conf.hidden_size], 
@@ -286,7 +286,7 @@ class GRU_Models:
                        linear_sizes=[], 
                        dropout=conf.dropout, 
                        device=conf.device),
-                host_model=GRU(i_size=2*conf.hidden_size, 
+                host_model=GRU(i_size=conf.rnn_input_size, 
                        h_size=conf.hidden_size, 
                        n_layers=1, 
                        linear_sizes=[conf.hidden_size], 

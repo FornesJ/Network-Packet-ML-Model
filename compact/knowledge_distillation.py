@@ -51,13 +51,14 @@ class KnowledgeDistillation:
         # if feature distillation: create attention adapter to reshape features from student and teacher
         if self.distillation == "feature":
             # Use adapter to match teacher and student hidden dimensions
-            assert self.student.model.n_layers == self.teacher.model.n_layers, \
-                "Teacher and student must have eaqual number of hidden layers!"
-
             if self.rnn:
+                assert self.student.model.n_layers == self.teacher.model.n_layers, \
+                "Teacher and student must have eaqual number of hidden layers!"
                 s_sizes = [2 * self.student.model.h_size for _ in range(self.student.model.n_layers)]
                 t_sizes = [2 * self.teacher.model.h_size for _ in range(self.teacher.model.n_layers)]
             else:
+                assert len(self.student.model.hidden_sizes) == len(self.teacher.model.hidden_sizes), \
+                "Teacher and student must have eaqual number of hidden layers!"
                 s_sizes, t_sizes = self.student.model.hidden_sizes, self.teacher.model.hidden_sizes
 
             self.adapter = Adapter(s_sizes, t_sizes).to(conf.device) # create adapter
@@ -161,6 +162,19 @@ class KnowledgeDistillation:
             accuracy_list.append(acc)
 
             print(f"Epoch: {epoch}/{epochs}, Accuracy: {100*acc:.2f}%, Train loss: {epoch_loss:.4f}, Val loss: {val_epoch_loss:.4f}")
+
+        if self.distillation == "feature":
+            # remove adapter parameters from student optimizer after kd
+            self.student.optimizer = torch.optim.AdamW(
+                list(self.student.model.parameters()), 
+                lr=conf.learning_rate, 
+                weight_decay=conf.weight_decay
+            )
+
+            self.student.scheduler = torch.optim.lr_scheduler.ExponentialLR(
+                self.student.optimizer, 
+                gamma=conf.gamma
+            )
         
         return accuracy_list, train_loss, val_loss
 

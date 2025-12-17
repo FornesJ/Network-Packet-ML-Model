@@ -45,6 +45,9 @@ class MLP(nn.Module):
         features = []
         out = None
 
+        if x.dim() > 2:
+            x = x.squeeze()
+
         for layer in self.linear:
             x = layer(x)
             features.append(x)

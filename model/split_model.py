@@ -28,7 +28,8 @@ class SplitModel(nn.Module):
             out (torch.tensor): prediction output from output layer
         """
         if split == "dpu":
-            features, out = self.dpu_model(x, classify=False)
+            x, out = self.dpu_model(x, classify=False)
+            features = x.detach()
         elif split == "host":
             features, out = self.host_model(x)
         else:

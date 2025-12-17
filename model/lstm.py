@@ -84,7 +84,7 @@ class LSTM(nn.Module):
         h_last = hidden_states[-1]
 
         # unsqueeze last hidden state as embeddings
-        embeddings = h_last.unsqueeze(1)
+        embeddings = h_last.unsqueeze(-1)
 
         # apply BN + FC
         if classify:
