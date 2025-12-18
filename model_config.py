@@ -31,6 +31,13 @@ class MLP_Models:
             checkpoint_path=os.path.join(conf.checkpoint, "compressed_model", "light_mlp_1.pth")
         )
 
+        self.result_light_mlp_1 = Model(
+            model=MLP(i_size=conf.mlp_input_size, hidden_sizes=[64], dropout=conf.dropout).to(conf.device),
+            loss_function=FocalLoss(),
+            conf=conf,
+            checkpoint_path=os.path.join(conf.checkpoint, "compressed_model", "result_light_mlp_1.pth")
+        )
+
         self.light_mlp_4 = Model(
             model=MLP(i_size=conf.mlp_input_size, hidden_sizes=[256, 128, 64, 32], dropout=conf.dropout).to(conf.device),
             loss_function=FocalLoss(),
@@ -99,6 +106,18 @@ class LSTM_Models:
             loss_function=FocalLoss(),
             conf=conf,
             checkpoint_path=os.path.join(conf.checkpoint, "compressed_model", "light_lstm_1.pth")
+        )
+
+        self.result_light_lstm_1 = Model(
+            model=LSTM(i_size=conf.rnn_input_size, 
+                       h_size=conf.light_hidden_size, 
+                       n_layers=1, 
+                       linear_sizes=[conf.light_hidden_size], 
+                       dropout=conf.dropout, 
+                       device=conf.device).to(conf.device),
+            loss_function=FocalLoss(),
+            conf=conf,
+            checkpoint_path=os.path.join(conf.checkpoint, "compressed_model", "result_light_lstm_1.pth")
         )
 
         self.light_lstm_4 = Model(
@@ -221,6 +240,18 @@ class GRU_Models:
             loss_function=FocalLoss(),
             conf=conf,
             checkpoint_path=os.path.join(conf.checkpoint, "compressed_model", "light_gru_1.pth")
+        )
+
+        self.result_light_gru_1 = Model(
+            model=GRU(i_size=conf.rnn_input_size, 
+                       h_size=conf.light_hidden_size, 
+                       n_layers=1, 
+                       linear_sizes=[conf.light_hidden_size], 
+                       dropout=conf.dropout, 
+                       device=conf.device).to(conf.device),
+            loss_function=FocalLoss(),
+            conf=conf,
+            checkpoint_path=os.path.join(conf.checkpoint, "compressed_model", "result_light_gru_1.pth")
         )
 
         self.light_gru_4 = Model(
