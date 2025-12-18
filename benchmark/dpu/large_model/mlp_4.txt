@@ -1,0 +1,23 @@
+Benchmark - mlp_4 model:
+
+Memory usage (MB):
+Avg memory usage: 0.149MB
+Peak memory usage: 1.201MB
+
+Model inference latency on one batch (batch size = 32):
+Avg latency: 5.026ms
+Min latency: 4.378ms
+Max latency: 10.902ms
+
+Model inference throughput (batch size = 32):
+Throughput: 4388.14 samples/sec
+
+Model inference CPU usage (number of logical cores) during runtime:
+CPU runtime: 0.33 seconds
+Average CPU usage: 4.43/8 cores
+
+Model (mlp_4) inference accuracy (%):
+Accuracy: 87.50%
+
+
+
