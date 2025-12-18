@@ -1,0 +1,18 @@
+Benchmark - split_mlp_1 model:
+
+Memory usage (MB):
+Avg memory usage: 0.141MB
+Peak memory usage: 1.094MB
+
+Model inference latency on one batch (batch size = 32):
+Avg latency: 3.280ms
+Min latency: 3.067ms
+Max latency: 6.826ms
+
+Model inference throughput (batch size = 32):
+Throughput: 5969.58 samples/sec
+
+Model inference CPU usage (number of logical cores) during runtime:
+CPU runtime: 0.29 seconds
+Average CPU usage: 3.68/8 cores
+

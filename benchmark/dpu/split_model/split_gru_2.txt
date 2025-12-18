@@ -1,0 +1,18 @@
+Benchmark - split_gru_2 model:
+
+Memory usage (MB):
+Avg memory usage: 66.068MB
+Peak memory usage: 961.875MB
+
+Model inference latency on one batch (batch size = 32):
+Avg latency: 1496.852ms
+Min latency: 1449.034ms
+Max latency: 2429.129ms
+
+Model inference throughput (batch size = 32):
+Throughput: 21.67 samples/sec
+
+Model inference CPU usage (number of logical cores) during runtime:
+CPU runtime: 75.92 seconds
+Average CPU usage: 5.40/8 cores
+

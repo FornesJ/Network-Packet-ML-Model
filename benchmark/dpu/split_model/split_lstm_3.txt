@@ -1,0 +1,18 @@
+Benchmark - split_lstm_3 model:
+
+Memory usage (MB):
+Avg memory usage: 8.479MB
+Peak memory usage: 81.408MB
+
+Model inference latency on one batch (batch size = 32):
+Avg latency: 168.470ms
+Min latency: 155.150ms
+Max latency: 255.588ms
+
+Model inference throughput (batch size = 32):
+Throughput: 187.41 samples/sec
+
+Model inference CPU usage (number of logical cores) during runtime:
+CPU runtime: 8.81 seconds
+Average CPU usage: 7.15/8 cores
+
