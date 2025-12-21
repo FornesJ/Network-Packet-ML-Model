@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+from utils.metrics import evaluate_metrics
 
 class Model:
     """
@@ -51,13 +53,10 @@ class Model:
             val_loader (DataLoader): validation data_loader
             epochs (int): number of epochs
         Returns:
-            acc_list (list): list with accuracies pr. epoch
-            train_loss_list (list): list conatining training loss per epoch
-            val_loss_list (list): list conatining validation loss per epoch
+            f1_macro (list): list with f1 macro scores per epoch
+            f1_micr (list): list with f1 micro scores per epoch
         """
-        acc_list = []
-        train_loss_list = []
-        val_loss_list = []
+        f1_macro, f1_micro, roc_auc_macro = [], [], []
 
         for epoch in range(1, epochs + 1):
             self.model.train()
@@ -77,17 +76,17 @@ class Model:
                 self.optimizer.step()
             
             # evaluate model
-            val_loss, acc = self.evaluate(val_loader)
+            val_loss, metrics = self.evaluate(val_loader)
             train_loss = running_loss / (train_loader.__len__() * train_loader.batch_size)
             self.scheduler.step()
 
-            acc_list.append(acc)
-            train_loss_list.append(train_loss)
-            val_loss_list.append(val_loss)
+            f1_macro.append(metrics["f1_macro"])
+            f1_micro.append(metrics["f1_micro"])
+            roc_auc_macro.append(metrics["roc_auc_macro"])
         
-            print(f"Epoch: {epoch}/{epochs}, Accuracy: {100*acc:.2f}%, Train loss: {train_loss:.4f}, Val loss: {val_loss:.4f}")
+            print(f"Epoch: {epoch}/{epochs}, Macro-F1 score: {metrics['f1_macro']:.2f}, Micro-F1 score: {metrics['f1_micro']:.2f}, Macro ROC AUC score: {metrics['roc_auc_macro']:.2f}, Train loss: {train_loss:.3f}, Val loss: {val_loss:.3f}")
 
-        return acc_list, train_loss_list, val_loss_list
+        return f1_macro, f1_micro, roc_auc_macro
     
     def evaluate(self, val_loader):
         """
@@ -97,7 +96,7 @@ class Model:
         Retruns:
             acc (float): accuracy of the model
         """
-        y_true, y_pred = [], []
+        y_true, y_logits = [], []
 
         self.model.eval()
 
@@ -106,20 +105,26 @@ class Model:
                 data, labels = data.to(self.device), labels.to(self.device)
 
             with torch.no_grad():
-                _, pred = self.model(data)
+                _, logits = self.model(data)
             
             y_true.append(labels)
-            y_pred.append(pred)
+            y_logits.append(logits)
 
-        y_true, y_pred = torch.cat(y_true, dim=0), torch.cat(y_pred, dim=0)
+        y_true, y_logits = torch.cat(y_true, dim=0), torch.cat(y_logits, dim=0)
 
-        loss = self.criterion(y_pred, y_true)
+        loss = self.criterion(y_logits, y_true)
 
         # evaluate accuracy
-        acc = (y_pred.argmax(dim=1) == y_true).float().mean()
-        # bal_acc = balanced_accuracy_score(y_true=y_true, y_pred=y_pred.argmax(dim=1))
+        y_probs = F.softmax(y_logits, dim=1)
+        y_preds = torch.argmax(y_probs, dim=1).cpu()
+        y_probs = y_probs.cpu()
+        y_true = y_true.cpu()
 
-        return loss, acc
+        metrics = evaluate_metrics(y_true, y_preds, y_probs, num_classes=y_logits.size(1))
+        
+        # acc = (y_pred.argmax(dim=1) == y_true).float().mean()
+
+        return loss, metrics
     
     def load(self):
         """

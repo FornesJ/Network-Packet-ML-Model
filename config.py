@@ -30,4 +30,4 @@ class Config:
         self.gamma = 0.9
         self.dropout = 0.20
         self.epochs = 10
-        self.batch_size = 32
+        self.batch_size = 512
