@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
-from torch.ao.quantization.quantize_pt2e import prepare_pt2e, convert_pt2e
-import torch.ao.quantization.quantizer.x86_inductor_quantizer as xiq
-from torch.ao.quantization.quantizer.x86_inductor_quantizer import X86InductorQuantizer
+from torchao.quantization.pt2e.quantize_pt2e import prepare_pt2e, convert_pt2e
+import torchao.quantization.pt2e.quantizer.x86_inductor_quantizer as xiq
+from torchao.quantization.pt2e.quantizer.x86_inductor_quantizer import X86InductorQuantizer
 from config import Config
 conf = Config()
 
@@ -13,7 +13,7 @@ class Quantize_Model(nn.Module):
         self.quantizer.set_global(xiq.get_default_x86_inductor_quantization_config())
 
     def calibrate(model, loader):
-        torch.ao.quantization.move_exported_model_to_eval(model)
+        model.eval()
         with torch.no_grad():
             for (data, labels) in loader:
                 if not data.is_cuda or not labels.is_cuda:
