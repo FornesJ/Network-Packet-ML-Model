@@ -101,6 +101,34 @@ class LSTM(nn.Module):
         else:
             return embeddings, out
 
-        
+"""
+def forward(self, x):
+    h0 = torch.zeros(2*self.n_layers, x.shape[0], self.h_size).to(self.device)
+    c0 = torch.zeros(2*self.n_layers, x.shape[0], self.h_size).to(self.device)
+
+    out = None          
+    output, (h0, c0) = self.rnn(x, (h0, c0))    # output: [B, T, 2*h_size]
+
+    # h0 shape: [num_layers*2, B, size]
+    h_states = h0.view(self.n_layers, 2, x.shape[0], self.h_size) # [num_layers, 2, B, h_size]
+
+    # last layer's hidden state
+    h_last = h_states[-1]
+    h_last = torch.cat((h_last[0], h_last[1]), dim=1)
+
+    # unsqueeze last hidden state as embeddings
+    embeddings = h_last.unsqueeze(-1)
+
+    # apply BN + FC
+    x = self.bn1(h_last)         # [B, 2*h_size] → batch norm
+
+    for layer in self.linear:
+        x = layer(x)
+
+    x = self.bn2(x)
+    out = self.output(x)
+
+    return embeddings, out
+"""  
 
     

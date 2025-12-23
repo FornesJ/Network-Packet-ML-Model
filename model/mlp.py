@@ -61,6 +61,21 @@ class MLP(nn.Module):
 
         return features, out
 
+"""
+features = []
+out = None
+
+for layer in self.linear:
+    x = layer(x)
+    features.append(x)
+
+features = features[-1]     # final hidden representation
+
+x = self.bn(x)              # batchnorm before output layer
+out = self.output(x)        # model prediction logits
+
+return features, out
+"""
 
 
        

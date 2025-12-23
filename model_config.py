@@ -12,6 +12,7 @@ conf = Config()
 
 class MLP_Models:
     def __init__(self, ):
+        self.type = "mlp"
 
         # full mlp model
         self.mlp_4 = {
@@ -19,6 +20,7 @@ class MLP_Models:
             "hidden_sizes": [512, 256, 128, 64],
             "dropout": conf.dropout,
             "checkpoint_path": os.path.join(conf.checkpoint, "large_model", "mlp_4.pth"),
+            "pruned_checkpoint_path": os.path.join(conf.checkpoint, "pruned_model", "pruned_mlp_4.pth"),
             "split": False,
             "split_idx": 0
         }
@@ -114,6 +116,8 @@ class MLP_Models:
 
 class LSTM_Models:
     def __init__(self):
+        self.type = "rnn"
+
         # full lstm model
         self.lstm_4 = {
             "name": "lstm_4",
@@ -123,6 +127,7 @@ class LSTM_Models:
             "linear_sizes": [conf.hidden_size],
             "dropout": conf.dropout,
             "checkpoint_path": os.path.join(conf.checkpoint, "large_model", "lstm_4.pth"),
+            "pruned_checkpoint_path": os.path.join(conf.checkpoint, "pruned_model", "pruned_lstm_4.pth"),
             "split": False,
             "split_idx": 0
         }
@@ -271,6 +276,8 @@ class LSTM_Models:
 
 class GRU_Models:
     def __init__(self):
+        self.type = "rnn"
+
         self.gru_4 = {
             "name": "gru_4",
             "i_size": conf.rnn_input_size,
@@ -279,6 +286,7 @@ class GRU_Models:
             "linear_sizes": [conf.hidden_size],
             "dropout": conf.dropout,
             "checkpoint_path": os.path.join(conf.checkpoint, "large_model", "gru_4.pth"),
+            "pruned_checkpoint_path": os.path.join(conf.checkpoint, "pruned_model", "pruned_gru_4.pth"),
             "split": False,
             "split_idx": 0
         }

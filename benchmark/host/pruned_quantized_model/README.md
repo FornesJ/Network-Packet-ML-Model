@@ -1,0 +1,1 @@
+# Pruned Quantized model

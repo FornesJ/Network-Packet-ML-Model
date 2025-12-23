@@ -13,7 +13,7 @@ class KnowledgeDistillation:
                 teacher, 
                 student, 
                 device, 
-                distillation="result",  
+                distillation="response",  
                 T=4.0,
                 soft_target_loss_weight=0.25,
                 rkd_loss_weight=0.1,
@@ -26,7 +26,7 @@ class KnowledgeDistillation:
             teacher (Model): large teacher model (pretrained)
             student (Model): light student model
             device (string): device
-            distillation (string): define distillation mode: result | feature | relation
+            distillation (string): define distillation mode: response | feature | relation
             T (float): temperature for kd_distillation
             soft_target_loss_weight (float): weight
             rkd_loss_weight (float): wight
@@ -140,9 +140,12 @@ class KnowledgeDistillation:
                     # Weighted sum of feature loss, soft target loss and true label loss
                     loss = self.feature_loss_weight * feat_loss + self.soft_target_loss_weight * soft_targets_loss + self.loss_weight * label_loss
                 
-                else:
+                elif self.distillation == "response":
                     # Weighted sum of soft target loss and true label loss
                     loss = self.soft_target_loss_weight * soft_targets_loss + self.loss_weight * label_loss
+                
+                else:
+                    raise ValueError("distillation must be 'response', 'relation' or 'feature'!")
                 
                 running_loss += loss.item()
                 loss.backward()
@@ -189,78 +192,4 @@ class Adapter(nn.Module):
 
     def forward(self, features):
         return [a(f) for a, f in zip(self.adapters, features)]
-
-
-class AttentionAdapter(nn.Module):
-    """
-    Class AttentionAdapter creates adapter for reshaping student and teacher features
-    """
-    def __init__(self, student_dims, teacher_dims, hidden_dim=128):
-        """
-        Constructor for AttentionAdapter
-        Parameters:
-            student_dims (list(int)): list of shapes for each student feature
-            student_dims (list(int)): list of shapes for each teacher feature
-            hidden_dim (int): shape of hidden dim
-        """
-        super().__init__()
-        self.num_t = len(teacher_dims)
-        self.hidden_dim = hidden_dim
-
-        self.student_to_hidden = nn.ModuleList(
-            nn.Linear(s, hidden_dim) for s in student_dims
-        )
-
-        self.teacher_to_hidden = nn.ModuleList(
-            nn.Linear(t, hidden_dim) for t in teacher_dims
-        )
-
-        self.hidden_to_output = nn.ModuleList(
-            nn.Linear(hidden_dim, hidden_dim)
-            for _ in student_dims
-        )
-
-    def forward(self, student_feats, teacher_feats):
-        """
-        Forward method creates attention adapter from student and teacher features
-        Parameters:
-            student_feats (list(torch.Tensor)): list of student features
-            teacher_feats (list(torch.Tensor)): list of teacher features
-        Returns:
-            adapted_pairs (tuple(torch.Tensor, torch.Tensor)): pairs with outup from student and teahcer projections
-        """
-        adapted_pairs = []
-  
-        # Project teacher features into a shared hidden space
-        t_embeds = [
-            t_proj(t)
-            for t, t_proj in zip(teacher_feats, self.teacher_to_hidden)
-        ]
-
-        # stack to (B, num_teacher, H)
-        t_stack = torch.stack(t_embeds, dim=1)
-
-        # Process each student layer
-        for i, s in enumerate(student_feats):
-            # Project student hidden state
-            s_embed = self.student_to_hidden[i](s) # (B, H)
-
-            # compute similarity to each teacher layer: produce (B, num_teacher)
-            sims = torch.stack([
-                torch.cosine_similarity(s_embed, t, dim=1)
-                for t in t_embeds
-            ], dim=1)                        # (B, num_teacher)
-
-            weights = F.softmax(sims, dim=1) # (B, num_teacher)
-            weights = weights.unsqueeze(-1)  # (B, num_teacher, 1)
-
-            # Weighted sum: (B, num_teacher, H) * (B, num_teacher, 1)
-            t_mix = (weights * t_stack).sum(dim=1)   # (B, H)
-
-            # Final projection to match teacher layer dimension
-            s_out = self.hidden_to_output[i](s_embed)  # (B, H)
-
-            adapted_pairs.append((s_out, t_mix))
-
-        return adapted_pairs
 

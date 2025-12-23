@@ -10,7 +10,6 @@ from utils.metrics import evaluate_metrics
 class Benchmark:
     def __init__(self, model, loader, batch_size, model_name, result_path):
         self.model = model
-        self.model.load()
         self.loader = loader
         self.batch_size = batch_size
         self.model_name = model_name
@@ -22,7 +21,10 @@ class Benchmark:
         self.latency()
         self.throughput()
         self.cpu_usage()
-        self.accuracy()
+        self.metrics()
+    
+    def load_model(self):
+        self.model.load()
 
     def print_result(self):
         for line in self.results:
@@ -133,13 +135,13 @@ class Benchmark:
         self.model.model.eval()
         y_true, y_logits = [], []
 
-        with torch.no_grad():
-            for _ in range(runs):
-                data, labels = next(iter(self.loader))
+        for _ in range(runs):
+            data, labels = next(iter(self.loader))
+            with torch.no_grad():
                 _, logits = self.model.model(data)
 
-                y_true.append(labels)
-                y_logits.append(logits)
+            y_true.append(labels)
+            y_logits.append(logits)
         
         y_true, y_logits = torch.cat(y_true, dim=0), torch.cat(y_logits, dim=0)
 
@@ -152,9 +154,15 @@ class Benchmark:
         #acc = (pred.argmax(dim=1) == labels).float().mean()
 
         self.results.append(f"Model ({self.model_name}) Macro-F1, Micro-F1 and Macro ROC AUC scores:")
-        self.results.append(f"Macro-F1 score: {metrics['f1_macro']:.2f}%")
-        self.results.append(f"Micro-F1 score: {metrics['f1_micro']:.2f}%")
-        self.results.append(f"Macro ROC AUC score: {metrics['roc_auc_macro']:.2f}%\n\n\n")
+        self.results.append(f"Macro-F1 score: {metrics['f1_macro']:.2f}")
+        self.results.append(f"Micro-F1 score: {metrics['f1_micro']:.2f}")
+        self.results.append(f"Macro ROC AUC score: {metrics['roc_auc_macro']:.2f}\n\n\n")
+
+
+
+
+
+
 
 
 class SplitBenchmark(Benchmark):
@@ -258,24 +266,32 @@ class SplitBenchmark(Benchmark):
         self.results.append(f"Peak memory usage: {peak_mem:.3f}MB\n")
 
 
-    def accuracy(self, runs=100):
+    def metrics(self, runs=100):
         if self.split == "dpu": 
             return
         self.model.model.eval()
-        y_true, y_pred = [], []
+        y_true, y_logits = [], []
 
-        with torch.no_grad():
-            for _ in range(runs):
-                data, labels = next(iter(self.loader))
-                _, pred = self.model.model(data, self.split)
+        for _ in range(runs):
+            data, labels = next(iter(self.loader))
+            with torch.no_grad():
+                _, logits = self.model.model(data, self.split)
 
-                y_true.append(labels)
-                y_pred.append(pred)
+            y_true.append(labels)
+            y_logits.append(logits)
         
-        y_true, y_pred = torch.cat(y_true, dim=0), torch.cat(y_pred, dim=0)
+        y_true, y_logits = torch.cat(y_true, dim=0), torch.cat(y_logits, dim=0)
         
-        acc = (pred.argmax(dim=1) == labels).float().mean()
+        y_probs = F.softmax(y_logits, dim=1)
+        y_preds = torch.argmax(y_probs, dim=1).cpu()
+        y_probs = y_probs.cpu()
+        y_true = y_true.cpu()
 
-        self.results.append(f"Model ({self.model_name}) inference accuracy (%):")
-        self.results.append(f"Accuracy: {acc*100:.2f}%\n\n\n")
+        metrics = evaluate_metrics(y_true, y_preds, y_probs, num_classes=y_logits.size(1))
+        #acc = (pred.argmax(dim=1) == labels).float().mean()
+
+        self.results.append(f"Model ({self.model_name}) Macro-F1, Micro-F1 and Macro ROC AUC scores:")
+        self.results.append(f"Macro-F1 score: {metrics['f1_macro']:.2f}")
+        self.results.append(f"Micro-F1 score: {metrics['f1_micro']:.2f}")
+        self.results.append(f"Macro ROC AUC score: {metrics['roc_auc_macro']:.2f}\n\n\n")
     
