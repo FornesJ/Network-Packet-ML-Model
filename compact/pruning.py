@@ -29,8 +29,9 @@ class PruneModel():
         # importance per output neuron
         return layer.weight.norm(dim=1)  # (out_features,)
     
-    def select_units(self, importance):
-        keep = int(len(importance) * (1 - self.prune_ratio))
+    def select_units(self, importance, rnn=False):
+        H = importance.numel() if rnn else len(importance)
+        keep = int(H * (1 - self.prune_ratio))
         idx = torch.topk(importance, keep).indices.sort().values
         return idx
     
@@ -88,8 +89,8 @@ class PruneModel():
         imp_f = self.hidden_unit_importance(rnn, layer=0, gates=gates, reverse=False)
         imp_b = self.hidden_unit_importance(rnn, layer=0, gates=gates, reverse=True)
 
-        keep_f = self.select_units(imp_f)
-        keep_b = self.select_units(imp_b)
+        keep_f = self.select_units(imp_f, rnn=True)
+        keep_b = self.select_units(imp_b, rnn=True)
 
         new_hidden = keep_f.numel() # new hidden size
 
@@ -127,8 +128,7 @@ class PruneModel():
 
                 # Hidden to hidden parameters
                 W_hh = getattr(rnn, f'weight_hh_l{layer}{suffix}')
-                print(W_hh.shape)
-                W_hh = W_hh.view(gates, -1, -1)
+                W_hh = W_hh.view(gates, W_hh.shape[-1], W_hh.shape[-1])
                 W_hh = W_hh[:, keep][:, :, keep]
 
                 # Set hidden to hidden parameters in layer
