@@ -14,6 +14,7 @@ class Config:
         self.model = os.path.join(self.root_folder, "model")
         self.datasets = os.path.join(self.root_folder, "data")
         self.utils = os.path.join(self.root_folder, "utils")
+        self.sock_so = os.path.join(self.transfer, "socket_transfer", "socket_transfer.so")
 
         # system settings
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

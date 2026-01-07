@@ -7,6 +7,8 @@
 #include <unistd.h>
 
 #define PORT 8065
+#define SIG_READY 1
+#define LOG 1
 
 struct host_socket {
     int fd;
@@ -21,6 +23,7 @@ struct host_socket {
 struct dpu_socket {
     int fd;
     int wc;
+    int opt;
     struct sockaddr_in host_addr;
 };
 
@@ -33,9 +36,25 @@ struct tensor {
 
 struct tensor* alloc_tensor();
 
+struct dpu_socket* alloc_dpu_sock();
+
+struct host_socket* alloc_host_sock();
+
 void free_tensor(struct tensor *t);
 
-int dpu_send_buffer(float* buffer, int size, int dim, int* shape, char* host_adress);
+void close_dpu_sock(struct dpu_socket *s);
 
-int host_recv_buffer(struct tensor *new_tensor);
+void close_host_sock(struct host_socket *s);
+
+int open_dpu_socket(struct dpu_socket *socket_conf, char* host_adress);
+
+int open_host_socket(struct host_socket *socket_conf);
+
+int wait_ready_signal(struct dpu_socket *socket_conf);
+
+int send_ready_signal(struct host_socket *socket_conf);
+
+int send_dpu_buffer(struct dpu_socket *socket_conf, float* buffer, int size, int dim, int* shape, int log);
+
+int recv_host_buffer(struct host_socket *socket_conf, struct tensor *new_tensor, int log);
 

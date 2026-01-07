@@ -166,25 +166,51 @@ class Benchmark:
 
 
 class SplitBenchmark(Benchmark):
-    def __init__(self, model, loader, batch_size, model_name, result_path, split="dpu"):
+    def __init__(self, model, loader, batch_size, model_name, result_path, socket, split="dpu"):
         super().__init__(model, loader, batch_size, model_name, result_path)
+        self.socket = socket
         self.split = split
+
+    def open(self):
+        self.socket.open()
+
+    def close(self):
+        self.socket.close()
+
+    def send(self, features, labels):
+        if self.split == "dpu":
+            self.socket.send(features)
+            self.socket.send(labels.to(dtype=torch.float))
+            self.socket.wait()
+        else:
+            self.socket.signal()
+
+    def receive(self):
+        if self.split == "dpu":
+            data, labels = next(iter(self.loader))
+        else:
+            data = self.socket.receive()
+            labels = self.socket.receive().to(dtype=torch.long)
+        
+        return data, labels
 
     def latency(self, warmup=10, runs=100):
         self.model.model.eval()
 
         with torch.no_grad():
             for _ in range(warmup):
-                data, labels = next(iter(self.loader))
-                _ = self.model.model(data, self.split)
+                data, labels = self.receive()
+                features, _ = self.model.model(data, self.split)
+                self.send(features, labels)
 
         times = []
         with torch.no_grad():
             for _ in range(runs):
-                data, labels = next(iter(self.loader))
+                data, labels = self.receive()
                 start = time.perf_counter()
-                _ = self.model.model(data, self.split)
+                features, _ = self.model.model(data, self.split)
                 end = time.perf_counter()
+                self.send(features, labels)
                 times.append(end - start)
         
         self.results.append(f"Model inference latency on one batch (batch size = {self.batch_size}):")
@@ -200,8 +226,9 @@ class SplitBenchmark(Benchmark):
 
         with torch.no_grad():
             while time.perf_counter() - start < seconds:
-                data, labels = next(iter(self.loader))
-                _ = self.model.model(data, self.split)
+                data, labels = self.receive()
+                features, _ = self.model.model(data, self.split)
+                self.send(features, labels)
                 count += data.size(0)
 
         elapsed = time.perf_counter() - start
@@ -216,16 +243,18 @@ class SplitBenchmark(Benchmark):
 
         with torch.no_grad():
             for _ in range(warmup):
-                data, labels = next(iter(self.loader))
-                feat, _ = self.model.model(data, self.split)
+                data, labels = self.receive()
+                features, _ = self.model.model(data, self.split)
+                self.send(features, labels)
         
         start_cpu = process.cpu_times()
         start_time = time.time()
         
         with torch.no_grad():
             for _ in range(runs):
-                data, labels = next(iter(self.loader))
-                _ = self.model.model(data, self.split)
+                data, labels = self.receive()
+                features, _ = self.model.model(data, self.split)
+                self.send(features, labels)
 
         end_cpu = process.cpu_times()
         end_time = time.time()
@@ -242,8 +271,9 @@ class SplitBenchmark(Benchmark):
 
         with torch.no_grad():
             for _ in range(warmup):
-                data, labels = next(iter(self.loader))
-                _ = self.model.model(data, self.split)
+                data, labels = self.receive()
+                features, _ = self.model.model(data, self.split)
+                self.send(features, labels)
         
         with torch.no_grad():
             with torch.profiler.profile(
@@ -253,8 +283,9 @@ class SplitBenchmark(Benchmark):
                     with_stack=True
                 ) as prof:
                 for _ in range(runs):
-                    data, labels = next(iter(self.loader))
-                    _ = self.model.model(data, self.split)
+                    data, labels = self.receive()
+                    features, _ = self.model.model(data, self.split)
+                    self.send(features, labels)
 
         # peak memory during profiling
         memory_readings = [e.cpu_memory_usage for e in prof.key_averages()]
@@ -267,31 +298,37 @@ class SplitBenchmark(Benchmark):
 
 
     def metrics(self, runs=100):
-        if self.split == "dpu": 
-            return
         self.model.model.eval()
-        y_true, y_logits = [], []
+        if self.split == "dpu":
+            for _ in range(runs):
+                data, labels = self.receive()
+                with torch.no_grad():
+                    features, _ = self.model.model(data, self.split)
+                self.send(features, labels)
+        else:
+            y_true, y_logits = [], []
 
-        for _ in range(runs):
-            data, labels = next(iter(self.loader))
-            with torch.no_grad():
-                _, logits = self.model.model(data, self.split)
+            for _ in range(runs):
+                data, labels = self.receive()
+                with torch.no_grad():
+                    features, logits = self.model.model(data, self.split)
+                self.send(features, labels)
 
-            y_true.append(labels)
-            y_logits.append(logits)
-        
-        y_true, y_logits = torch.cat(y_true, dim=0), torch.cat(y_logits, dim=0)
-        
-        y_probs = F.softmax(y_logits, dim=1)
-        y_preds = torch.argmax(y_probs, dim=1).cpu()
-        y_probs = y_probs.cpu()
-        y_true = y_true.cpu()
+                y_true.append(labels)
+                y_logits.append(logits)
+            
+            y_true, y_logits = torch.cat(y_true, dim=0), torch.cat(y_logits, dim=0)
+            
+            y_probs = F.softmax(y_logits, dim=1)
+            y_preds = torch.argmax(y_probs, dim=1).cpu()
+            y_probs = y_probs.cpu()
+            y_true = y_true.cpu()
 
-        metrics = evaluate_metrics(y_true, y_preds, y_probs, num_classes=y_logits.size(1))
-        #acc = (pred.argmax(dim=1) == labels).float().mean()
+            metrics = evaluate_metrics(y_true, y_preds, y_probs, num_classes=y_logits.size(1))
+            #acc = (pred.argmax(dim=1) == labels).float().mean()
 
-        self.results.append(f"Model ({self.model_name}) Macro-F1, Micro-F1 and Macro ROC AUC scores:")
-        self.results.append(f"Macro-F1 score: {metrics['f1_macro']:.2f}")
-        self.results.append(f"Micro-F1 score: {metrics['f1_micro']:.2f}")
-        self.results.append(f"Macro ROC AUC score: {metrics['roc_auc_macro']:.2f}\n\n\n")
+            self.results.append(f"Model ({self.model_name}) Macro-F1, Micro-F1 and Macro ROC AUC scores:")
+            self.results.append(f"Macro-F1 score: {metrics['f1_macro']:.2f}")
+            self.results.append(f"Micro-F1 score: {metrics['f1_micro']:.2f}")
+            self.results.append(f"Macro ROC AUC score: {metrics['roc_auc_macro']:.2f}\n\n\n")
     

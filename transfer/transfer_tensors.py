@@ -6,13 +6,37 @@ from dotenv import load_dotenv
 class DPUSocket:
     def __init__(self, so_file, localhost=True):
         self.socket_transfer = ctypes.CDLL(so_file)
-        self.dpu_send_buffer = self.socket_transfer.dpu_send_buffer
-        self.dpu_send_buffer.argtypes = [ctypes.POINTER(ctypes.c_float), 
+
+        # dpu socket
+        self.socket_ptr = None
+
+        # get send_dpu_buffer
+        self.send_dpu_buffer = self.socket_transfer.send_dpu_buffer
+        self.send_dpu_buffer.argtypes = [ctypes.c_void_p,
+                                        ctypes.POINTER(ctypes.c_float), 
                                         ctypes.c_int, 
                                         ctypes.c_int, 
-                                        ctypes.POINTER(ctypes.c_int), 
-                                        ctypes.c_char_p]
-        self.dpu_send_buffer.restype = ctypes.c_int # int return type
+                                        ctypes.POINTER(ctypes.c_int),
+                                        ctypes.c_int]
+        self.send_dpu_buffer.restype = ctypes.c_int # int return type
+
+        # get alloc_dpu_sock
+        self.alloc_dpu_sock = self.socket_transfer.alloc_dpu_sock
+        self.alloc_dpu_sock.restype = ctypes.c_void_p
+
+        # get open_dpu_socket
+        self.open_dpu_socket = self.socket_transfer.open_dpu_socket
+        self.open_dpu_socket.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+        self.open_dpu_socket.restype = ctypes.c_int
+
+        # get close_dpu_sock
+        self.close_dpu_sock = self.socket_transfer.close_dpu_sock
+        self.close_dpu_sock.argtypes = [ctypes.c_void_p]
+        
+        # wait_ready_signal
+        self.wait_ready_signal = self.socket_transfer.wait_ready_signal
+        self.wait_ready_signal.argtypes = [ctypes.c_void_p]
+        self.wait_ready_signal.restype = ctypes.c_int
 
         # Load environment variables from the .env file
         load_dotenv()
@@ -21,7 +45,31 @@ class DPUSocket:
         else:
             self.address = os.getenv("HOST_IP")
 
-    def send(self, tensor):
+    def open(self):
+        if self.socket_ptr != None:
+            raise RuntimeError("dpu socket is already open!")
+        
+        # convert to c type
+        address_pointer = ctypes.c_char_p(self.address.encode("utf-8"))
+        
+        # allocate host buffer
+        csock_ptr = self.alloc_dpu_sock()
+        if not csock_ptr:
+            raise RuntimeError("alloc_dpu_sock returned NULL")
+
+        # open host socket
+        if self.open_dpu_socket(csock_ptr, address_pointer) != 0:
+            raise RuntimeError("open_dpu_socket failed!")
+        
+        self.socket_ptr = csock_ptr
+
+    def close(self):
+        self.close_dpu_sock(self.socket_ptr)
+
+    def wait(self):
+        self.wait_ready_signal(self.socket_ptr)
+
+    def send(self, tensor, log=0):
         # get tensor dim, shape and size
         dim = tensor.dim()
         shape = list(tensor.shape)
@@ -34,14 +82,14 @@ class DPUSocket:
         tensor_pointer = ctypes.cast(tensor.data_ptr(), ctypes.POINTER(ctypes.c_float))
         int_array = ctypes.c_int * dim
         shape_pointer = int_array(*shape)
-        address_pointer = ctypes.c_char_p(self.address.encode("utf-8"))
 
         # start socket transfer
-        status = self.dpu_send_buffer(tensor_pointer, 
-                        ctypes.c_int(size), 
-                        ctypes.c_int(dim), 
-                        shape_pointer, 
-                        address_pointer)
+        status = self.send_dpu_buffer(self.socket_ptr,
+                                    tensor_pointer, 
+                                    ctypes.c_int(size), 
+                                    ctypes.c_int(dim), 
+                                    shape_pointer,
+                                    ctypes.c_int(log))
         if status != 0:
             print("Send tensor to host failed!")
 
@@ -55,11 +103,14 @@ class HostSocket:
         
     def __init__(self, so_file):
         self.socket_transfer = ctypes.CDLL(so_file)
+
+        # host socket
+        self.socket_ptr = None
         
-        # get host_recv_buffer function
-        self.host_recv_buffer = self.socket_transfer.host_recv_buffer
-        self.host_recv_buffer.argtypes = [ctypes.POINTER(self.CTensor)]
-        self.host_recv_buffer.restype = ctypes.c_int
+        # get recv_host_buffer function
+        self.recv_host_buffer = self.socket_transfer.recv_host_buffer
+        self.recv_host_buffer.argtypes = [ctypes.c_void_p, ctypes.POINTER(self.CTensor), ctypes.c_int]
+        self.recv_host_buffer.restype = ctypes.c_int
 
         # get alloc_tensor function
         self.alloc_tensor = self.socket_transfer.alloc_tensor
@@ -69,17 +120,57 @@ class HostSocket:
         self.free_tensor = self.socket_transfer.free_tensor
         self.free_tensor.argtypes = [ctypes.POINTER(self.CTensor)]
 
-    def receive(self):
+        # get alloc_host_sock
+        self.alloc_host_sock = self.socket_transfer.alloc_host_sock
+        self.alloc_host_sock.restype = ctypes.c_void_p
+
+        # get open_host_socket
+        self.open_host_socket = self.socket_transfer.open_host_socket
+        self.open_host_socket.argtypes = [ctypes.c_void_p]
+        self.open_host_socket.restype = ctypes.c_int
+
+        # get close_host_sock
+        self.close_host_sock = self.socket_transfer.close_host_sock
+        self.close_host_sock.argtypes = [ctypes.c_void_p]
+
+        # get send_ready_signal
+        self.send_ready_signal = self.socket_transfer.send_ready_signal
+        self.send_ready_signal.argtypes = [ctypes.c_void_p]
+        self.send_ready_signal.restype = ctypes.c_int
+
+    def open(self):
+        if self.socket_ptr != None:
+            raise RuntimeError("host socket is already open!")
+        
+        # allocate host buffer
+        csock_ptr = self.alloc_host_sock()
+        if not csock_ptr:
+            raise RuntimeError("alloc_host_sock returned NULL")
+
+        # open host socket
+        if self.open_host_socket(csock_ptr) != 0:
+            raise RuntimeError("open_host_socket failed!")
+        
+        self.socket_ptr = csock_ptr
+
+    def close(self):
+        self.close_host_sock(self.socket_ptr)
+
+    def signal(self):
+        self.send_ready_signal(self.socket_ptr)
+
+    def receive(self, log=0):
         # create tensor struct
         ctensor_ptr = self.alloc_tensor()
         if not ctensor_ptr:
             raise RuntimeError("alloc_tensor returned NULL")
 
         # get tensor data form dpu
-        status = self.host_recv_buffer(ctensor_ptr)
+
+        status = self.recv_host_buffer(self.socket_ptr, ctensor_ptr, ctypes.c_int(log))
         if status != 0:
             self.free_tensor(ctensor_ptr)
-            raise RuntimeError("host_recv_buffer failed")
+            raise RuntimeError("recv_host_buffer failed")
 
         size = ctensor_ptr.contents.size
         dim = ctensor_ptr.contents.dim
