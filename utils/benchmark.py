@@ -177,19 +177,19 @@ class SplitBenchmark(Benchmark):
     def close(self):
         self.socket.close()
 
-    def send(self, features, labels):
+    def send(self, features, labels, time=False):
         if self.split == "dpu":
-            self.socket.send(features)
+            self.socket.send(features, t_time=time)
             self.socket.send(labels.to(dtype=torch.float))
             self.socket.wait()
         else:
             self.socket.signal()
 
-    def receive(self):
+    def receive(self, time=False):
         if self.split == "dpu":
             data, labels = next(iter(self.loader))
         else:
-            data = self.socket.receive()
+            data = self.socket.receive(t_time=time)
             labels = self.socket.receive().to(dtype=torch.long)
         
         return data, labels
@@ -330,5 +330,30 @@ class SplitBenchmark(Benchmark):
             self.results.append(f"Model ({self.model_name}) Macro-F1, Micro-F1 and Macro ROC AUC scores:")
             self.results.append(f"Macro-F1 score: {metrics['f1_macro']:.2f}")
             self.results.append(f"Micro-F1 score: {metrics['f1_micro']:.2f}")
-            self.results.append(f"Macro ROC AUC score: {metrics['roc_auc_macro']:.2f}\n\n\n")
+            self.results.append(f"Macro ROC AUC score: {metrics['roc_auc_macro']:.2f}\n")
+
+    def transfer_time(self, runs=100):
+        self.model.model.eval()
+
+        if self.split == "dpu":
+            with torch.no_grad():
+                for _ in range(runs):
+                    data, labels = self.receive(time=True)
+                    features, _ = self.model.model(data, self.split)
+                    self.send(features, labels, time=True)
+        else:
+            times = []
+            with torch.no_grad():
+                for _ in range(runs):
+                    (data, time), labels = self.receive(time=True)
+                    features, _ = self.model.model(data, self.split)
+                    self.send(features, labels, time=True)
+                    times.append(time)
+            
+            self.results.append(f"Split Model transfer time from dpu to host (batch size = {self.batch_size}):")
+            self.results.append(f"Avg transfer time: {sum(times)/len(times)*1000:.3f}ms")
+            self.results.append(f"Min transfer time: {min(times)*1000:.3f}ms")
+            self.results.append(f"Max transfer time: {max(times)*1000:.3f}ms\n")
+                
+
     

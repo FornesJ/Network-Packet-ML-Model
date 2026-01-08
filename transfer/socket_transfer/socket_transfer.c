@@ -30,6 +30,12 @@ struct host_socket* alloc_host_sock() {
     return s;
 }
 
+struct transfer_time* alloc_transfer_time() {
+    struct transfer_time *t = malloc(sizeof(struct transfer_time));
+    if (!t) return NULL;
+    return t;
+}
+
 void free_tensor(struct tensor *t) {
     if (t) {
         free(t->shape);
@@ -51,6 +57,10 @@ void close_host_sock(struct host_socket *s) {
         close(s->fd);
         free(s);
     }
+}
+
+void free_transfer_time(struct transfer_time *t) {
+    if (t) free(t);
 }
 
 int open_dpu_socket(struct dpu_socket *socket_conf, char* host_adress) {
@@ -308,4 +318,34 @@ fail:
     close(socket_conf->fd);
     free(socket_conf);
     return EXIT_FAILURE;
-}   
+}
+
+int send_dpu_time(struct dpu_socket *socket_conf, float time) {
+    // send time
+    int time_net = htonl(time);
+    socket_conf->wc = send(socket_conf->fd, &time_net, sizeof(time_net), 0);
+    if (socket_conf->wc < 0) {
+        printf("\n Send time to host failed! \n");
+        close(socket_conf->fd);
+        free(socket_conf);
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
+}
+
+int recv_host_time(struct host_socket *socket_conf, struct transfer_time *time) {
+    // read time sent from dpu
+    int time_net;
+    socket_conf->rc = recv(socket_conf->dpu_socket, &time_net, sizeof(time_net), 0);
+    if (socket_conf->rc < 0) {
+        printf("\n Failed to receive time from dpu! \n");
+        close(socket_conf->dpu_socket);
+        close(socket_conf->fd);
+        free(socket_conf);
+        return EXIT_FAILURE;
+    }
+    time->time = ntohl(time_net);
+
+    return EXIT_SUCCESS;
+}

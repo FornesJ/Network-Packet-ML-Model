@@ -34,17 +34,25 @@ struct tensor {
     float *buffer;
 };
 
+struct transfer_time {
+    float time;
+};
+
 struct tensor* alloc_tensor();
 
 struct dpu_socket* alloc_dpu_sock();
 
 struct host_socket* alloc_host_sock();
 
+struct transfer_time* alloc_transfer_time();
+
 void free_tensor(struct tensor *t);
 
 void close_dpu_sock(struct dpu_socket *s);
 
 void close_host_sock(struct host_socket *s);
+
+void free_transfer_time(struct transfer_time *t);
 
 int open_dpu_socket(struct dpu_socket *socket_conf, char* host_adress);
 
@@ -57,4 +65,8 @@ int send_ready_signal(struct host_socket *socket_conf);
 int send_dpu_buffer(struct dpu_socket *socket_conf, float* buffer, int size, int dim, int* shape, int log);
 
 int recv_host_buffer(struct host_socket *socket_conf, struct tensor *new_tensor, int log);
+
+int send_dpu_time(struct dpu_socket *socket_conf, float time);
+
+int recv_host_time(struct host_socket *socket_conf, struct transfer_time *time);
 

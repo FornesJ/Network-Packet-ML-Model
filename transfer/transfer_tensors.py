@@ -2,6 +2,7 @@ import torch
 import ctypes
 import os
 from dotenv import load_dotenv
+import time
 
 class DPUSocket:
     def __init__(self, so_file, localhost=True):
@@ -38,6 +39,11 @@ class DPUSocket:
         self.wait_ready_signal.argtypes = [ctypes.c_void_p]
         self.wait_ready_signal.restype = ctypes.c_int
 
+        # send_dpu_time
+        self.send_dpu_time = self.socket_transfer.send_dpu_time
+        self.send_dpu_time.argtypes = [ctypes.c_void_p, ctypes.c_float]
+        self.send_dpu_time.restype = ctypes.c_int
+
         # Load environment variables from the .env file
         load_dotenv()
         if localhost:
@@ -69,7 +75,7 @@ class DPUSocket:
     def wait(self):
         self.wait_ready_signal(self.socket_ptr)
 
-    def send(self, tensor, log=0):
+    def send(self, tensor, log=0, t_time=False):
         # get tensor dim, shape and size
         dim = tensor.dim()
         shape = list(tensor.shape)
@@ -82,6 +88,12 @@ class DPUSocket:
         tensor_pointer = ctypes.cast(tensor.data_ptr(), ctypes.POINTER(ctypes.c_float))
         int_array = ctypes.c_int * dim
         shape_pointer = int_array(*shape)
+
+        # send time
+        if t_time:
+            dpu_time = time.perf_counter()
+            if self.send_dpu_time(self.socket_ptr, ctypes.c_float(dpu_time)) != 0:
+                raise RuntimeError("send_dpu_time failed!")
 
         # start socket transfer
         status = self.send_dpu_buffer(self.socket_ptr,
@@ -100,6 +112,9 @@ class HostSocket:
                     ("dim", ctypes.c_int),
                     ("shape", ctypes.POINTER(ctypes.c_int)),
                     ("buffer", ctypes.POINTER(ctypes.c_float))]
+    
+    class CTime(ctypes.Structure):
+        _fields_ = [("time", ctypes.c_float)]
         
     def __init__(self, so_file):
         self.socket_transfer = ctypes.CDLL(so_file)
@@ -120,6 +135,14 @@ class HostSocket:
         self.free_tensor = self.socket_transfer.free_tensor
         self.free_tensor.argtypes = [ctypes.POINTER(self.CTensor)]
 
+        # get alloc_transfer_time
+        self.alloc_transfer_time = self.socket_transfer.alloc_transfer_time
+        self.alloc_transfer_time.restype = ctypes.POINTER(self.CTime)
+
+        # get free_transfer_time
+        self.free_transfer_time = self.socket_transfer.free_transfer_time
+        self.free_transfer_time.argtypes = [ctypes.POINTER(self.CTime)]
+
         # get alloc_host_sock
         self.alloc_host_sock = self.socket_transfer.alloc_host_sock
         self.alloc_host_sock.restype = ctypes.c_void_p
@@ -137,6 +160,10 @@ class HostSocket:
         self.send_ready_signal = self.socket_transfer.send_ready_signal
         self.send_ready_signal.argtypes = [ctypes.c_void_p]
         self.send_ready_signal.restype = ctypes.c_int
+
+        self.recv_host_time = self.socket_transfer.recv_host_time
+        self.recv_host_time.argtypes = [ctypes.c_void_p, ctypes.POINTER(self.CTime)]
+        self.recv_host_time.restype = ctypes.c_int
 
     def open(self):
         if self.socket_ptr != None:
@@ -159,24 +186,43 @@ class HostSocket:
     def signal(self):
         self.send_ready_signal(self.socket_ptr)
 
-    def receive(self, log=0):
+    def receive(self, log=0, t_time=False):
         # create tensor struct
         ctensor_ptr = self.alloc_tensor()
         if not ctensor_ptr:
             raise RuntimeError("alloc_tensor returned NULL")
+        
+        # receive dpu time
+        if t_time:
+            ct_time_ptr = self.alloc_transfer_time()
+            if not ct_time_ptr:
+                raise RuntimeError("alloc_transfer_time returned NULL")
+            
+            if self.recv_host_time(self.socket_ptr, ct_time_ptr) != 0:
+                self.free_transfer_time(ct_time_ptr)
+                raise RuntimeError("recv_host_time failed")
+            
+            dpu_time = ct_time_ptr.contents.time
 
         # get tensor data form dpu
-
         status = self.recv_host_buffer(self.socket_ptr, ctensor_ptr, ctypes.c_int(log))
         if status != 0:
             self.free_tensor(ctensor_ptr)
             raise RuntimeError("recv_host_buffer failed")
+        
+        # host time
+        if t_time:
+            host_time = time.perf_counter()
+            transfer_time = host_time - dpu_time
+            self.free_transfer_time(ct_time_ptr)
 
+        # unpack tensor data
         size = ctensor_ptr.contents.size
         dim = ctensor_ptr.contents.dim
         shape_ptr = ctensor_ptr.contents.shape
         buf_ptr = ctensor_ptr.contents.buffer
 
+        # Sanity check
         if not shape_ptr:
             self.free_tensor(ctensor_ptr)
             raise RuntimeError("shape pointer is NULL")
@@ -206,7 +252,10 @@ class HostSocket:
         # reshape tensor to original shape
         tensor = tensor.reshape(shape)
 
-        return tensor
+        if t_time:
+            return tensor, transfer_time
+        else:
+            return tensor
 
 
 
