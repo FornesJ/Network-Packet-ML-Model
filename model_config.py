@@ -8,6 +8,7 @@ from train import Model
 from model.mlp import MLP
 from model.lstm import LSTM
 from model.gru import GRU
+from model.cnn import CNN
 conf = Config()
 
 class MLP_Models:
@@ -422,6 +423,41 @@ class GRU_Models:
                        dropout=model_conf["dropout"], 
                        device=conf.device).to(conf.device)
             
+        return Model(model=model,
+            loss_function=FocalLoss(),
+            conf=conf,
+            checkpoint_path=model_conf["checkpoint_path"],
+            split_model=model_conf["split"])
+
+class CNN_models:
+    def __init__(self):
+        self.type = "cnn"
+
+        self.cnn_5 = {
+            "i_size": 1, 
+            "filters": [(32, 23), (64, 19), (128, 15), (192, 11), (256, 7)], 
+            "linear_sizes": [512, 256], 
+            "dropout": conf.dropout, 
+            "flatten_size": 3328,
+            "checkpoint_path": os.path.join(conf.checkpoint, "large_model", "cnn_5.pth"),
+            "split": False,
+            "split_idx": 0
+        }
+    
+    def get_model(self, model_conf: dict):
+        """
+        Method returns model based on selected config
+        Params:
+            model_conf (dict): dict with model hyper parameters
+        Returns:
+            (Model): Model object containing model based on parameters from config
+        """
+        model = CNN(i_size=model_conf["i_size"],
+                    filters=model_conf["filters"],
+                    linear_sizes=model_conf["linear_sizes"],
+                    flatten_size=model_conf["flatten_size"],
+                    dropout=model_conf["dropout"]).to(conf.device)
+
         return Model(model=model,
             loss_function=FocalLoss(),
             conf=conf,
