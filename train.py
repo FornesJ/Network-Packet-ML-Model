@@ -56,7 +56,7 @@ class Model:
             f1_macro (list): list with f1 macro scores per epoch
             f1_micr (list): list with f1 micro scores per epoch
         """
-        f1_macro, f1_micro, roc_auc_macro = [], [], []
+        metrics_list, train_loss_list, val_loss_list = [], [], []
 
         for epoch in range(1, epochs + 1):
             self.model.train()
@@ -80,13 +80,13 @@ class Model:
             train_loss = running_loss / (train_loader.__len__() * train_loader.batch_size)
             self.scheduler.step()
 
-            f1_macro.append(metrics["f1_macro"])
-            f1_micro.append(metrics["f1_micro"])
-            roc_auc_macro.append(metrics["roc_auc_macro"])
+            metrics_list.append(metrics)
+            train_loss_list.append(train_loss)
+            val_loss_list.append(val_loss)
         
             print(f"Epoch: {epoch}/{epochs}, Macro-F1 score: {metrics['f1_macro']:.2f}, Micro-F1 score: {metrics['f1_micro']:.2f}, Macro ROC AUC score: {metrics['roc_auc_macro']:.2f}, Train loss: {train_loss:.3f}, Val loss: {val_loss:.3f}")
 
-        return f1_macro, f1_micro, roc_auc_macro
+        return metrics_list, train_loss_list, val_loss_list
     
     def evaluate(self, val_loader):
         """
@@ -124,7 +124,7 @@ class Model:
         
         # acc = (y_pred.argmax(dim=1) == y_true).float().mean()
 
-        return loss, metrics
+        return loss.cpu(), metrics
     
     def load(self):
         """

@@ -5,36 +5,43 @@ class SplitModel(nn.Module):
     """
     class for SplitModel
     """
-    def __init__(self, dpu_model, host_model):
+    def __init__(self, dpu_model, host_model, split="none"):
         super().__init__()
         """
         Constructer for split model
         Parameters:
             dpu_model (nn.Module): model on dpu
             host_model (nn.Module): model on host
+            split (string): run inference on "dpu" -> dpu model | "host" -> host model | "none" -> both dpu and host models
         """
-        self.dpu_model = dpu_model
-        self.host_model = host_model
+        if split == "dpu":
+            self.dpu_model = dpu_model
+            self.host_model = None
+            del host_model
+        elif split == "host":
+            self.dpu_model = None
+            self.host_model = host_model
+            del dpu_model
+        else:
+            self.dpu_model = dpu_model
+            self.host_model = host_model
+        self.split = split
 
-    def forward(self, x, split="none"):
+    def forward(self, x):
         """
         Forward method returns features and output from split model
         dpu model | host model | both dpu and host models
         Parameters:
             x (torch.Tensor): input tensor
-            split (string): run inference on "dpu" -> dpu model | "host" -> host model | "none" -> both dpu and host models
         Returns:
             features (torch.tensor): features from hidden layers
             out (torch.tensor): prediction output from output layer
         """
-        if split == "dpu":
-            x, out = self.dpu_model(x, classify=False)
-            features = x.detach()
-        elif split == "host":
-            features, out = self.host_model(x)
+        if self.split == "dpu":
+            return self.dpu_model(x)
+        elif self.split == "host":
+            return self.host_model(x)
         else:
-            x, _ = self.dpu_model(x, classify=False)
-            x.detach()
-            features, out = self.host_model(x)
-        return features, out
+            x, _ = self.dpu_model(x)
+            return self.host_model(x)
 

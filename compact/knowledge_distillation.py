@@ -13,13 +13,13 @@ class KnowledgeDistillation:
                 teacher, 
                 student, 
                 device, 
+                model_type,
                 distillation="response",  
                 T=4.0,
                 soft_target_loss_weight=0.25,
                 rkd_loss_weight=0.1,
                 feature_loss_weight=1.5, 
-                loss_weight=0.75,
-                rnn=False):
+                loss_weight=0.75):
         """
         Constructor for KnowledgeDistillation
         Params:
@@ -37,6 +37,7 @@ class KnowledgeDistillation:
         self.teacher = teacher
         self.student = student
         self.device = device
+        self.type = model_type
         self.distillation = distillation
         self.T=T
         self.soft_target_loss_weight = soft_target_loss_weight
@@ -46,16 +47,19 @@ class KnowledgeDistillation:
         self.kd_loss = KD_Loss(T=self.T)
         self.rkd_loss = RKD_Loss()
         self.feature_loss = Feature_Loss()
-        self.rnn = rnn
 
         # if feature distillation: create attention adapter to reshape features from student and teacher
         if self.distillation == "feature":
             # Use adapter to match teacher and student hidden dimensions
-            if self.rnn:
+            if self.type == "rnn":
                 assert self.student.model.n_layers == self.teacher.model.n_layers, \
                 "Teacher and student must have eaqual number of hidden layers!"
                 s_sizes = [2 * self.student.model.h_size for _ in range(self.student.model.n_layers)]
                 t_sizes = [2 * self.teacher.model.h_size for _ in range(self.teacher.model.n_layers)]
+            elif self.type == "cnn":
+                assert self.student.model.conv_layers == self.teacher.model.conv_layers, \
+                "Teacher and student must have eaqual number of hidden layers!"
+                s_sizes, t_sizes = self.student.model.conv_layers, self.teacher.model.conv_layers
             else:
                 assert len(self.student.model.hidden_sizes) == len(self.teacher.model.hidden_sizes), \
                 "Teacher and student must have eaqual number of hidden layers!"
@@ -88,9 +92,7 @@ class KnowledgeDistillation:
             val_loss (list(float)): validation loss per epoch
         """
         self.teacher.model.eval()
-        train_loss = []
-        val_loss = []
-        accuracy_list = []
+        metrics_list, train_loss_list, val_loss_list = [], [], []
 
         for epoch in range(1, epochs + 1):
             self.student.model.train()
@@ -103,11 +105,16 @@ class KnowledgeDistillation:
                 self.student.optimizer.zero_grad()
                 
                 # Forward pass with student model and teacher model
-                get_feat = True if self.distillation == "feature" else False
-                with torch.no_grad():
-                    t_emb, t_logits = self.teacher.model(data, feat=get_feat)
-                    t_logits.detach()
-                s_emb, s_logits = self.student.model(data, feat=get_feat)
+                if self.distillation == "feature":
+                    with torch.no_grad():
+                        t_emb, t_logits = self.teacher.model.feature_map(data)
+                        t_logits.detach()
+                    s_emb, s_logits = self.student.model.feature_map(data)
+                else:        
+                    with torch.no_grad():
+                        t_emb, t_logits = self.teacher.model(data)
+                        t_logits.detach()
+                    s_emb, s_logits = self.student.model(data)
 
                 # Calculate the soft targets loss
                 soft_targets_loss = self.kd_loss(s_logits, t_logits)
@@ -115,13 +122,17 @@ class KnowledgeDistillation:
                 # Calculate the true label loss
                 label_loss = self.student.criterion(s_logits, labels)
 
+
+
                 if self.distillation == "relation":
                     # detach embeddings from model gradients
                     t_emb = t_emb.detach()
 
                     # if rnn model: convert embedding to shape [B, 2*h_size]
-                    if self.rnn:
+                    if self.type == "rnn":
                         t_emb, s_emb = torch.squeeze(t_emb), torch.squeeze(s_emb)
+                    if self.type == "cnn":
+                        t_emb, s_emb = torch.flatten(t_emb), torch.flatten(s_emb)
 
                     rkd_loss = self.rkd_loss(s_emb, t_emb) # calculate rkd loss
 
@@ -147,6 +158,7 @@ class KnowledgeDistillation:
                 else:
                     raise ValueError("distillation must be 'response', 'relation' or 'feature'!")
                 
+
                 running_loss += loss.item()
                 loss.backward()
 
@@ -155,16 +167,19 @@ class KnowledgeDistillation:
 
                 self.student.optimizer.step()
             
+
+
             # validate student model
+            val_epoch_loss, metrics = self.student.evaluate(val_loader)
             epoch_loss = running_loss / len(train_loader.dataset)
-            val_epoch_loss, acc = self.student.evaluate(val_loader)
             self.student.scheduler.step()
 
-            train_loss.append(epoch_loss)
-            val_loss.append(val_epoch_loss)
-            accuracy_list.append(acc)
+            metrics_list.append(metrics)
+            train_loss_list.append(epoch_loss)
+            val_loss_list.append(val_epoch_loss)
+        
+            print(f"Epoch: {epoch}/{epochs}, Macro-F1 score: {metrics['f1_macro']:.2f}, Micro-F1 score: {metrics['f1_micro']:.2f}, Macro ROC AUC score: {metrics['roc_auc_macro']:.2f}, Train loss: {epoch_loss:.3f}, Val loss: {val_epoch_loss:.3f}")
 
-            print(f"Epoch: {epoch}/{epochs}, Accuracy: {100*acc:.2f}%, Train loss: {epoch_loss:.4f}, Val loss: {val_epoch_loss:.4f}")
 
         if self.distillation == "feature":
             # remove adapter parameters from student optimizer after kd
@@ -179,7 +194,7 @@ class KnowledgeDistillation:
                 gamma=conf.gamma
             )
         
-        return accuracy_list, train_loss, val_loss
+        return metrics_list, train_loss_list, val_loss_list
 
 
 class Adapter(nn.Module):
