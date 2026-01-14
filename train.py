@@ -67,7 +67,7 @@ class Model:
                 if not data.is_cuda or not labels.is_cuda:
                     data, labels = data.to(self.device), labels.to(self.device)
                 
-                _, pred = self.model(data)
+                pred = self.model(data)
                 loss = self.criterion(pred, labels)
                 running_loss += loss.item() * data.size(0)
 
@@ -105,7 +105,7 @@ class Model:
                 data, labels = data.to(self.device), labels.to(self.device)
 
             with torch.no_grad():
-                _, logits = self.model(data)
+                logits = self.model(data)
             
             y_true.append(labels)
             y_logits.append(logits)

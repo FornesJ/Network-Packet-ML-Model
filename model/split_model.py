@@ -42,6 +42,6 @@ class SplitModel(nn.Module):
         elif self.split == "host":
             return self.host_model(x)
         else:
-            x, _ = self.dpu_model(x)
+            x = self.dpu_model(x)
             return self.host_model(x)
 

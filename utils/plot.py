@@ -95,7 +95,7 @@ def plot_fpr_tpr_roc_auc(metrics, plot_path):
 
     plt.grid(alpha=0.3)
     plt.tight_layout()
-    #plt.savefig(plot_path, dpi=300, bbox_inches="tight")
+    plt.savefig(plot_path, dpi=300, bbox_inches="tight")
     plt.show()
 
 

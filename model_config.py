@@ -505,7 +505,7 @@ class CNN_models:
             "filters": [(16, 11), (32, 9), (64, 7), (128, 5), (192, 3)], 
             "linear_sizes": [512, 256], 
             "dropout": conf.dropout, 
-            "flatten_size": 3328,
+            "flatten_size": 4608,
             "checkpoint_path": os.path.join(conf.checkpoint, "compressed_model", "light_cnn_4.pth"),
             "split": False,
             "split_idx": 0

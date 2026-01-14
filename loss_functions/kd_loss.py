@@ -81,5 +81,5 @@ class Feature_Loss(nn.Module):
     def forward(self, student_features, teacher_features):
         loss = 0
         for s, t in zip(student_features, teacher_features):
-            loss += F.mse_loss(s, t.detach())
+            loss += F.mse_loss(s, t)
         return loss

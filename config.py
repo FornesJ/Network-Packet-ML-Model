@@ -31,5 +31,5 @@ class Config:
         self.gamma = 0.9
         self.dropout = 0.20
         self.epochs = 10
-        self.batch_size = 32 #if self.device == "cuda" else 32
+        self.batch_size = 512 #if self.device == "cuda" else 32
         self.location = "none" # "dpu" "host"

@@ -44,27 +44,12 @@ class MLP(nn.Module):
         """
         for layer in self.linear:
             x = layer(x)
-        features = x
 
         # BatchNorm + Output layer
         x = self.bn(x)
         out = self.output(x)
 
-        return features, out
-    
-    def feature_map(self, x):
-        features = []
-        out = None
-
-        for layer in self.linear:
-            x = layer(x)
-            features.append(x)
-
-        # BatchNorm + Output layer
-        x = self.bn(x)
-        out = self.output(x)
-
-        return features, out
+        return out
 
 
 class DPU_MLP(nn.Module):
@@ -97,5 +82,5 @@ class DPU_MLP(nn.Module):
         for layer in self.linear:
             x = layer(x)
         
-        return x, None
+        return x
        

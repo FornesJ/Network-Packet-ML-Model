@@ -4,6 +4,7 @@ import torch.nn as nn
 class CNN(nn.Module):
     def __init__(self, i_size, filters, linear_sizes, flatten_size, dropout, max_pool_last=False):
         super().__init__()
+        self.filters = filters
         self.max_pool_last = max_pool_last
         self.conv_layers = len(filters)
 
@@ -53,7 +54,6 @@ class CNN(nn.Module):
         # Convolutional layers
         for conv in self.conv:
             x = conv(x)
-        last_feat = x
         
         # Flatten + BatchNorm
         x = self.flatten(x)
@@ -67,30 +67,7 @@ class CNN(nn.Module):
         x = self.bn2(x)
         out = self.output(x)
     
-        return last_feat, out
-        
-    def feature_map(self, x):
-        # Convolutional layers
-        feat_map = []
-        for i in range(0, len(self.conv) - 1, 2):
-            x = self.conv[i](x)         # Conv + ReLu + Dropout layer
-            feat_map.append(x)          # Store feature map
-            x = self.conv[i + 1](x)     # MaxPool layer
-        x = self.conv[-1](x)            # Last Conv layer
-
-        # Flatten + BatchNorm
-        x = self.flatten(x)
-        x = self.bn1(x)
-
-        # Fully connected layers
-        for layer in self.linear:
-            x = layer(x)
-        
-        # BN + Output layer
-        x = self.bn2(x)
-        out = self.output(x)
-
-        return feat_map, out
+        return out
         
 
 class DPU_CNN(nn.Module):

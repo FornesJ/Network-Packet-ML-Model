@@ -10,6 +10,8 @@ def confusion_matrix(y_true, y_pred, num_classes):
     return cm
 
 
+
+
 def precision_recall_f1(cm, average="macro"):
     """
     Docstring for precision_recall_f1
@@ -45,28 +47,8 @@ def precision_recall_f1(cm, average="macro"):
     else:
         raise ValueError("average must be 'macro' or 'micro'!")
     
-"""
-def multiclass_roc_auc(y_true, y_prob, average="macro"):
-    
-    Function for multiclass_roc_auc
-    :param y_true: [N]
-    :param y_prob: [N, C]
-    :param average: string
-    
-    num_classes = y_prob.size(1)
-    # one-hot encode labels
-    y_true_bin = F.one_hot(
-        y_true, num_classes=num_classes
-    ).numpy()
 
-    # return roc auc score
-    return roc_auc_score(
-        y_true_bin,
-        y_prob.numpy(),
-        average=average,
-        multi_class="ovr"
-    )
-"""
+
 
 def multiclass_roc_auc(y_true, y_prob):
     """
