@@ -20,6 +20,7 @@ class Config:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # Model architecture
+        self.input_size = 513
         self.mlp_input_size = 513
         self.rnn_input_size = 1
         self.hidden_size = 64

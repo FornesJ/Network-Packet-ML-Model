@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.ao.quantization as quant
 
 class GRU(nn.Module):
     """
@@ -129,3 +130,46 @@ class DPU_GRU(nn.Module):
         return output
 
 
+class GRU_QP(GRU):
+    def __init__(self, i_size, h_size, n_layers, linear_sizes, dropout, device):
+        super().__init__(i_size, h_size, n_layers, linear_sizes, dropout, device)
+        self.bn1 = nn.LayerNorm(2 * h_size)
+        self.bn2 = nn.LayerNorm(linear_sizes[-1])
+
+        self.quant = quant.QuantStub()
+        self.dequant = quant.DeQuantStub()
+
+    def forward(self, x):
+        """
+        Forward method to model
+        Args:
+            x (torch.tensor): input tensor
+        Returns:
+            embeddings | hidden_states (torch.tensor): last hidden state | hidden states from each gru layers
+            out (torch.tensor): prediction output from linear layers
+        """
+        x = self.quant(x)
+        h0 = torch.zeros(2*self.n_layers, x.shape[0], self.h_size).to(self.device)
+        
+        out = None          
+        _, h0 = self.rnn(x, h0)  # sequence: [B, T, 2*h_size]
+
+        # h0 shape: [num_layers*2, B, size]
+        h_last = h0.view(self.n_layers, 2, x.shape[0], self.h_size)[-1] # [2, B, h_size]
+        h_last = torch.cat((h_last[0], h_last[1]), dim=1)  # [B, 2*size]
+
+        # apply BN + FC
+        x = self.dequant(x)
+        x = self.bn1(h_last)         # [B, 2*h_size] → batch norm
+        x = self.quant(x)
+        for layer in self.linear:
+            x = layer(x)
+        
+        # apply BN + Output
+        x = self.dequant(x)
+        x = self.bn2(x)
+        x = self.quant(x)
+        out = self.output(x)
+        out = self.dequant(x)
+
+        return out

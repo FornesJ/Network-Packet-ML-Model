@@ -138,20 +138,20 @@ class Benchmark:
         for _ in range(runs):
             data, labels = next(iter(self.loader))
             with torch.no_grad():
-                _, logits = self.model.model(data)
+                logits = self.model.model(data)
 
             y_true.append(labels)
             y_logits.append(logits)
-        
-        y_true, y_logits = torch.cat(y_true, dim=0), torch.cat(y_logits, dim=0)
 
+        y_true, y_logits = torch.cat(y_true, dim=0), torch.cat(y_logits, dim=0)
+        print(y_true[:10])
+        print(y_logits.argmax(dim=1)[:10])
         y_probs = F.softmax(y_logits, dim=1)
         y_preds = torch.argmax(y_probs, dim=1).cpu()
         y_probs = y_probs.cpu()
         y_true = y_true.cpu()
 
         metrics = evaluate_metrics(y_true, y_preds, y_probs, num_classes=y_logits.size(1))
-        #acc = (pred.argmax(dim=1) == labels).float().mean()
 
         self.results.append(f"Model ({self.model_name}) Macro-F1, Micro-F1 and Macro ROC AUC scores:")
         self.results.append(f"Macro-F1 score: {metrics['f1_macro']:.2f}")

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.utils.prune as prune
+import math
 from config import Config
 conf = Config()
 
@@ -28,6 +29,10 @@ class PruneModel():
     def neuron_importance_linear(self, layer: nn.Linear):
         # importance per output neuron
         return layer.weight.norm(dim=1)  # (out_features,)
+    
+    def conv1d_channel_importance(self, conv: nn.Conv1d):
+        # importance per output channel
+        return conv.weight.norm(dim=(1, 2))  # (out_channels,)
     
     def select_units(self, importance, rnn=False):
         H = importance.numel() if rnn else len(importance)
@@ -156,6 +161,75 @@ class PruneModel():
         final_keep = torch.cat([keep_f, keep_b])
         return model, final_keep
     
+    def prune_conv_units(self, model: nn.Module, prev_keep_idx=None):
+        """
+        prev_keep_idx: channels kept from previous Conv1d
+        """
+
+        conv_layers = []
+        L = conf.input_size
+
+        for layer in model.conv:
+            if isinstance(layer, nn.Sequential):
+                (conv, relu, dropout) = layer
+
+                # get importance tensor and select units from conv layer
+                imp = self.conv1d_channel_importance(conv)
+                keep_idx = self.select_units(imp)
+
+                in_ch = conv.in_channels if prev_keep_idx is None else len(prev_keep_idx)
+                out_ch = len(keep_idx)
+
+                new_conv = nn.Conv1d(
+                    in_channels=in_ch,
+                    out_channels=out_ch,
+                    kernel_size=conv.kernel_size,
+                    stride=conv.stride,
+                    padding=conv.padding,
+                    dilation=conv.dilation,
+                    groups=conv.groups,
+                    bias=conv.bias is not None,
+                    padding_mode=conv.padding_mode
+                )
+
+                W = conv.weight.data[keep_idx]
+                if prev_keep_idx is not None:
+                    W = W[:, prev_keep_idx, :]
+
+                new_conv.weight.data.copy_(W)
+
+                if conv.bias is not None:
+                    new_conv.bias.data.copy_(conv.bias.data[keep_idx])
+                
+                conv_layers.append(nn.Sequential(new_conv, relu, dropout))
+                prev_keep_idx = keep_idx
+
+                # Calculate new spatial/temporal length based on Conv layer
+                K = new_conv.kernel_size[0]
+                P = new_conv.padding[0]
+                S = new_conv.stride[0]
+                L = math.floor((L - K + 2*P) / S + 1)
+            else:
+                conv_layers.append(layer)
+
+                # Calculate new spatial/temporal length based on MaxPool layer
+                K = layer.kernel_size
+                P = layer.padding
+                S = layer.stride
+                D = layer.dilation
+                if S == 0:
+                    S = K
+                L = math.floor((L + 2*P - D*(K - 1) - 1) / S + 1)
+        
+        model.conv = nn.ModuleList(conv_layers) # replace old conv layers with pruned conv layers
+
+        # Reshape keep indexes to match flattend output shape
+        keep_flat = torch.cat([
+            c * L + torch.arange(L).to(conf.device) for c in prev_keep_idx
+        ])
+
+        return model, keep_flat
+    
     def prune_batchnorm(self, bn, keep):
         new_bn = nn.BatchNorm1d(len(keep))
         new_bn.weight.data = bn.weight.data[keep]
@@ -163,7 +237,89 @@ class PruneModel():
         new_bn.running_mean = bn.running_mean[keep]
         new_bn.running_var = bn.running_var[keep]
         return new_bn
+    
+    def prune_layernorm(self, ln: nn.LayerNorm, keep_idx):
+        new_ln = nn.LayerNorm(
+            normalized_shape=len(keep_idx),
+            eps=ln.eps,
+            elementwise_affine=ln.elementwise_affine
+        )
 
+        if ln.elementwise_affine:
+            new_ln.weight.data = ln.weight.data[keep_idx].clone()
+            new_ln.bias.data = ln.bias.data[keep_idx].clone()
+
+        return new_ln
+
+
+
+def prune_mlp_model(model, prune_ratio=0.2):
+    
+    # Prune Model object
+    pruning = PruneModel(prune_ratio=prune_ratio)
+    
+    # Prune Linear layers
+    pruned_model, keep = pruning.prune_linear_units(model)
+
+    # Set new hidden sizes
+    pruned_model.hidden_sizes = [layer.out_features for (layer, _, _) in pruned_model.linear]
+
+    # Prune Batch Norm
+    pruned_model.bn = pruning.prune_layernorm(pruned_model.bn, keep)
+
+    return model
+
+def prune_rnn_model(model, prune_ratio=0.2):
+
+    # Prune Model object
+    pruning = PruneModel(prune_ratio=prune_ratio)
+
+    # Prune LSTM/GRU layers
+    pruned_model, keep = pruning.prune_rnn_units(model)
+
+    # Prune Batch Norm 1
+    pruned_model.bn1 = pruning.prune_layernorm(pruned_model.bn1, keep)
+
+    # Prune Linear ayers
+    pruned_model, keep = pruning.prune_linear_units(pruned_model, in_features=keep)
+
+    # Set new hidden sizes
+    pruned_model.linear_sizes = [layer.out_features for (layer, _, _) in pruned_model.linear]
+
+    # Prune Batch Norm 2
+    pruned_model.bn2 = pruning.prune_layernorm(pruned_model.bn2, keep)
+
+    return model
+
+def prune_cnn_model(model, prune_ratio=0.2):
+
+    # Prune Model object
+    pruning = PruneModel(prune_ratio=prune_ratio)
+
+    # Prune Conv1d layers
+    pruned_model, keep = pruning.prune_conv_units(model)
+
+    # Set new out channels
+    new_filters = []
+    for layer in pruned_model.conv:
+        if isinstance(layer, nn.Sequential):
+            (conv, _, _) = layer
+            new_filters.append((conv.out_channels, conv.kernel_size))
+    pruned_model.filters = new_filters
+
+    # Prune Batch Norm 1
+    pruned_model.bn1 = pruning.prune_layernorm(pruned_model.bn1, keep)
+
+    # Prune Linear ayers
+    pruned_model, keep = pruning.prune_linear_units(pruned_model, in_features=keep)
+
+    # Set new hidden sizes
+    pruned_model.linear_sizes = [layer.out_features for (layer, _, _) in pruned_model.linear]
+
+    # Prune Batch Norm 2
+    pruned_model.bn2 = pruning.prune_layernorm(pruned_model.bn2, keep)
+
+    return model
 
 
 

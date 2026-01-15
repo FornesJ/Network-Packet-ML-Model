@@ -123,7 +123,8 @@ class KnowledgeDistillation:
         t_feat = t_feat.detach() # detach features from model gradients
 
         if self.type == "cnn":
-            t_feat, s_feat = t_feat.mean(dim=2), s_feat.mean(dim=2)  # Global Average Pooling
+            # Global Average Pooling teacher and student features
+            t_feat, s_feat = t_feat.mean(dim=2), s_feat.mean(dim=2)
 
         return self.rkd_loss(s_feat, t_feat) # calculate rkd loss
     
@@ -162,9 +163,9 @@ class KnowledgeDistillation:
         # adapt student feature to teacher feature shapes
         s_feat = self.adapter(s_feat)
 
-        # spacial alignment to shape student feature to teacher feature
         if self.type == "cnn":
-            s_feat = spatial_align(s_feat, t_feat)
+            # Adaptive Avg. Pooling teacher features down to student length
+            t_feat = [F.adaptive_avg_pool1d(t, s.size(-1)) for (t, s) in zip(t_feat, s_feat)]
         
         return self.feature_loss(s_feat, t_feat) # calculate feature loss
 
@@ -290,9 +291,3 @@ class ConvAdapter(nn.Module):
 
     def forward(self, features):
         return [a(f) for a, f in zip(self.adapters, features)]
-
-
-def spatial_align(s_feat, t_feat):
-    return [F.interpolate(
-        s, size=t.shape[-1], mode="linear", align_corners=False
-    ) for (s, t) in zip(s_feat, t_feat)]
