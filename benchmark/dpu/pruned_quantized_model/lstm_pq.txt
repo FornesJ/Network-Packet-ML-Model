@@ -1,0 +1,25 @@
+Benchmark - lstm_pq model:
+
+Memory usage (MB):
+Avg memory usage: 1.075MB
+Peak memory usage: 15.822MB
+
+Model inference latency on one batch (batch size = 1):
+Avg latency: 111.364ms
+Min latency: 95.006ms
+Max latency: 203.614ms
+
+Model inference throughput (batch size = 1):
+Throughput: 8.63 samples/sec
+
+Model inference CPU usage (number of logical cores) during runtime:
+CPU runtime: 6.35 seconds
+Average CPU usage: 5.90/8 cores
+
+Model (lstm_pq) Macro-F1, Micro-F1 and Macro ROC AUC scores:
+Macro-F1 score: 0.39
+Micro-F1 score: 0.89
+Macro ROC AUC score: nan
+
+
+

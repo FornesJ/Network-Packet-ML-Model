@@ -126,31 +126,3 @@ class CNN_QP(CNN):
         super().__init__(i_size, filters, linear_sizes, flatten_size, dropout, max_pool_last)
         self.bn1 = nn.LayerNorm(flatten_size)
         self.bn2 = nn.LayerNorm(linear_sizes[-1])
-
-        self.quant = quant.QuantStub()
-        self.dequant = quant.DeQuantStub()
-
-    def forward(self, x):
-        x = self.quant(x)
-        # Convolutional layers
-        for conv in self.conv:
-            x = conv(x)
-        
-        # Flatten + BatchNorm
-        x = self.flatten(x)
-        x = self.dequant(x)
-        x = self.bn1(x)
-        x = self.quant(x)
-
-        # Fully connected layers
-        for layer in self.linear:
-            x = layer(x)
-        
-        # BN + Output layer
-        x = self.dequant(x)
-        x = self.bn2(x)
-        x = self.quant(x)
-        out = self.output(x)
-        out = self.dequant(x)
-    
-        return out

@@ -1,0 +1,25 @@
+Benchmark - cnn_4 model:
+
+Memory usage (MB):
+Avg memory usage: 0.946MB
+Peak memory usage: 21.214MB
+
+Model inference latency on one batch (batch size = 1):
+Avg latency: 11.298ms
+Min latency: 10.511ms
+Max latency: 23.446ms
+
+Model inference throughput (batch size = 1):
+Throughput: 39.98 samples/sec
+
+Model inference CPU usage (number of logical cores) during runtime:
+CPU runtime: 1.19 seconds
+Average CPU usage: 3.52/8 cores
+
+Model (cnn_4) Macro-F1, Micro-F1 and Macro ROC AUC scores:
+Macro-F1 score: 0.51
+Micro-F1 score: 0.89
+Macro ROC AUC score: nan
+
+
+
