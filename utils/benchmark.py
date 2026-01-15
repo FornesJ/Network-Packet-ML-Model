@@ -144,8 +144,7 @@ class Benchmark:
             y_logits.append(logits)
 
         y_true, y_logits = torch.cat(y_true, dim=0), torch.cat(y_logits, dim=0)
-        print(y_true[:10])
-        print(y_logits.argmax(dim=1)[:10])
+
         y_probs = F.softmax(y_logits, dim=1)
         y_preds = torch.argmax(y_probs, dim=1).cpu()
         y_probs = y_probs.cpu()

@@ -1,0 +1,25 @@
+Benchmark - mlp_pq model:
+
+Memory usage (MB):
+Avg memory usage: 0.539MB
+Peak memory usage: 7.770MB
+
+Model inference latency on one batch (batch size = 1):
+Avg latency: 4.984ms
+Min latency: 4.078ms
+Max latency: 13.103ms
+
+Model inference throughput (batch size = 1):
+Throughput: 55.29 samples/sec
+
+Model inference CPU usage (number of logical cores) during runtime:
+CPU runtime: 0.87 seconds
+Average CPU usage: 2.20/8 cores
+
+Model (mlp_pq) Macro-F1, Micro-F1 and Macro ROC AUC scores:
+Macro-F1 score: 0.45
+Micro-F1 score: 0.95
+Macro ROC AUC score: nan
+
+
+

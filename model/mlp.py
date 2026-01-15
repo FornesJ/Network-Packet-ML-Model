@@ -87,26 +87,4 @@ class MLP_QP(MLP):
     def __init__(self, i_size, hidden_sizes, dropout):
         super().__init__(i_size, hidden_sizes, dropout)
         self.bn = nn.LayerNorm(hidden_sizes[-1])
-        self.quant = quant.QuantStub()
-        self.dequant = quant.DeQuantStub()
-
-    def forward(self, x):
-        """
-        Forward method to model
-        Args:
-            x (torch.tensor): input tensor
-        Returns:
-            out (torch.tensor): prediction output from linear layers
-        """
-        x = self.quant(x)
-        for layer in self.linear:
-            x = layer(x)
-
-        # BatchNorm + Output layer
-        x = self.dequant(x)
-        x = self.bn(x)
-        x = self.quant(x)
-        out = self.output(x)
-        out = self.dequant(x)
-        return out
        
