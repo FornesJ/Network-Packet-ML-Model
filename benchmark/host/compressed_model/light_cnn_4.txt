@@ -1,0 +1,25 @@
+Benchmark - light_cnn_4 model:
+
+Memory usage (MB):
+Avg memory usage: 0.291MB
+Peak memory usage: 4.689MB
+
+Model inference latency on one batch (batch size = 1):
+Avg latency: 1.502ms
+Min latency: 1.397ms
+Max latency: 1.635ms
+
+Model inference throughput (batch size = 1):
+Throughput: 685.31 samples/sec
+
+Model inference CPU usage (number of logical cores) during runtime:
+CPU runtime: 0.07 seconds
+Average CPU usage: 50.19/96 cores
+
+Model (light_cnn_4) Macro-F1, Micro-F1 and Macro ROC AUC scores:
+Macro-F1 score: 0.28
+Micro-F1 score: 0.80
+Macro ROC AUC score: nan
+
+
+

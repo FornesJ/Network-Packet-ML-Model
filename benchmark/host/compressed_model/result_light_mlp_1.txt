@@ -1,23 +1,25 @@
 Benchmark - result_light_mlp_1 model:
 
 Memory usage (MB):
-Avg memory usage: 0.071MB
-Peak memory usage: 0.629MB
+Avg memory usage: 0.005MB
+Peak memory usage: 0.046MB
 
-Model inference latency on one batch (batch size = 32):
-Avg latency: 0.146ms
-Min latency: 0.136ms
-Max latency: 0.757ms
+Model inference latency on one batch (batch size = 1):
+Avg latency: 0.312ms
+Min latency: 0.123ms
+Max latency: 0.698ms
 
-Model inference throughput (batch size = 32):
-Throughput: 64764.92 samples/sec
+Model inference throughput (batch size = 1):
+Throughput: 2089.56 samples/sec
 
 Model inference CPU usage (number of logical cores) during runtime:
 CPU runtime: 0.03 seconds
-Average CPU usage: 44.72/96 cores
+Average CPU usage: 0.79/96 cores
 
-Model (result_light_mlp_1) inference accuracy (%):
-Accuracy: 84.38%
+Model (result_light_mlp_1) Macro-F1, Micro-F1 and Macro ROC AUC scores:
+Macro-F1 score: 0.41
+Micro-F1 score: 0.89
+Macro ROC AUC score: nan
 
 
 
