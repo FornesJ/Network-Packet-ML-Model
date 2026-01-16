@@ -199,7 +199,7 @@ class SplitBenchmark(Benchmark):
         with torch.no_grad():
             for _ in range(warmup):
                 data, labels = self.receive()
-                features, _ = self.model.model(data)
+                features = self.model.model(data)
                 self.send(features, labels)
 
         times = []
@@ -207,7 +207,7 @@ class SplitBenchmark(Benchmark):
             for _ in range(runs):
                 data, labels = self.receive()
                 start = time.perf_counter()
-                features, _ = self.model.model(data)
+                features = self.model.model(data)
                 end = time.perf_counter()
                 self.send(features, labels)
                 times.append(end - start)
@@ -226,7 +226,7 @@ class SplitBenchmark(Benchmark):
         with torch.no_grad():
             while time.perf_counter() - start < seconds:
                 data, labels = self.receive()
-                features, _ = self.model.model(data)
+                features = self.model.model(data)
                 self.send(features, labels)
                 count += data.size(0)
 
@@ -243,7 +243,7 @@ class SplitBenchmark(Benchmark):
         with torch.no_grad():
             for _ in range(warmup):
                 data, labels = self.receive()
-                features, _ = self.model.model(data)
+                features = self.model.model(data)
                 self.send(features, labels)
         
         start_cpu = process.cpu_times()
@@ -252,7 +252,7 @@ class SplitBenchmark(Benchmark):
         with torch.no_grad():
             for _ in range(runs):
                 data, labels = self.receive()
-                features, _ = self.model.model(data)
+                features = self.model.model(data)
                 self.send(features, labels)
 
         end_cpu = process.cpu_times()
@@ -271,7 +271,7 @@ class SplitBenchmark(Benchmark):
         with torch.no_grad():
             for _ in range(warmup):
                 data, labels = self.receive()
-                features, _ = self.model.model(data)
+                features = self.model.model(data)
                 self.send(features, labels)
         
         with torch.no_grad():
@@ -283,7 +283,7 @@ class SplitBenchmark(Benchmark):
                 ) as prof:
                 for _ in range(runs):
                     data, labels = self.receive()
-                    features, _ = self.model.model(data)
+                    features = self.model.model(data)
                     self.send(features, labels)
 
         # peak memory during profiling
@@ -302,7 +302,7 @@ class SplitBenchmark(Benchmark):
             for _ in range(runs):
                 data, labels = self.receive()
                 with torch.no_grad():
-                    features, _ = self.model.model(data)
+                    features = self.model.model(data)
                 self.send(features, labels)
         else:
             y_true, y_logits = [], []
@@ -310,8 +310,8 @@ class SplitBenchmark(Benchmark):
             for _ in range(runs):
                 data, labels = self.receive()
                 with torch.no_grad():
-                    features, logits = self.model.model(data)
-                self.send(features, labels)
+                    logits = self.model.model(data)
+                self.send(logits, labels)
 
                 y_true.append(labels)
                 y_logits.append(logits)
@@ -338,14 +338,14 @@ class SplitBenchmark(Benchmark):
             with torch.no_grad():
                 for _ in range(runs):
                     data, labels = self.receive(time=True)
-                    features, _ = self.model.model(data)
+                    features = self.model.model(data)
                     self.send(features, labels, time=True)
         else:
             times = []
             with torch.no_grad():
                 for _ in range(runs):
                     (data, time), labels = self.receive(time=True)
-                    features, _ = self.model.model(data)
+                    features = self.model.model(data)
                     self.send(features, labels, time=True)
                     times.append(time)
             

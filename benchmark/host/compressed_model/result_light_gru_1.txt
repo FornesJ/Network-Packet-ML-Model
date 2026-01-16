@@ -1,23 +1,25 @@
 Benchmark - result_light_gru_1 model:
 
 Memory usage (MB):
-Avg memory usage: 16.505MB
-Peak memory usage: 240.537MB
+Avg memory usage: 0.438MB
+Peak memory usage: 7.518MB
 
-Model inference latency on one batch (batch size = 32):
-Avg latency: 58.498ms
-Min latency: 56.627ms
-Max latency: 59.745ms
+Model inference latency on one batch (batch size = 1):
+Avg latency: 18.767ms
+Min latency: 15.225ms
+Max latency: 20.661ms
 
-Model inference throughput (batch size = 32):
-Throughput: 532.81 samples/sec
+Model inference throughput (batch size = 1):
+Throughput: 52.79 samples/sec
 
 Model inference CPU usage (number of logical cores) during runtime:
-CPU runtime: 3.03 seconds
-Average CPU usage: 47.93/96 cores
+CPU runtime: 0.96 seconds
+Average CPU usage: 31.08/96 cores
 
-Model (result_light_gru_1) inference accuracy (%):
-Accuracy: 90.62%
+Model (result_light_gru_1) Macro-F1, Micro-F1 and Macro ROC AUC scores:
+Macro-F1 score: 0.50
+Micro-F1 score: 0.91
+Macro ROC AUC score: nan
 
 
 

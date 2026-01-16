@@ -1,0 +1,28 @@
+Benchmark - split_cnn_2 model:
+
+Memory usage (MB):
+Avg memory usage: 0.173MB
+Peak memory usage: 3.550MB
+
+Model inference latency on one batch (batch size = 1):
+Avg latency: 1.267ms
+Min latency: 0.878ms
+Max latency: 1.629ms
+
+Model inference throughput (batch size = 1):
+Throughput: 69.88 samples/sec
+
+Model inference CPU usage (number of logical cores) during runtime:
+CPU runtime: 0.79 seconds
+Average CPU usage: 17.06/96 cores
+
+Model (split_cnn_2) Macro-F1, Micro-F1 and Macro ROC AUC scores:
+Macro-F1 score: 0.04
+Micro-F1 score: 1.00
+Macro ROC AUC score: nan
+
+Split Model transfer time from dpu to host (batch size = 1):
+Avg transfer time: 1584363726.808ms
+Min transfer time: 1584363246.214ms
+Max transfer time: 1584364218.500ms
+

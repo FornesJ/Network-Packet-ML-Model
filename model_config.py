@@ -572,7 +572,7 @@ class CNN_models:
 
         # split cnn model
         self.split_cnn_3 = {
-            "name": "plit_cnn_3",
+            "name": "split_cnn_3",
             "i_size": 1,
             "i_size_host": 64,
             "filters": [(32, 23), (64, 19), (128, 15), (192, 11), (256, 7)], 
@@ -586,7 +586,7 @@ class CNN_models:
         }
 
         self.split_cnn_2 = {
-            "name": "plit_cnn_2",
+            "name": "split_cnn_2",
             "i_size": 1,
             "i_size_host": 128,
             "filters": [(32, 23), (64, 19), (128, 15), (192, 11), (256, 7)], 
@@ -600,7 +600,7 @@ class CNN_models:
         }
 
         self.split_cnn_1 = {
-            "name": "plit_cnn_1",
+            "name": "split_cnn_1",
             "i_size": 1,
             "i_size_host": 192,
             "filters": [(32, 23), (64, 19), (128, 15), (192, 11), (256, 7)], 
@@ -614,7 +614,7 @@ class CNN_models:
         }
 
         self.split_cnn_0 = {
-            "name": "plit_cnn_0",
+            "name": "split_cnn_0",
             "i_size": 1,
             "i_size_host": 64,
             "filters": [(32, 23), (64, 19), (128, 15), (192, 11), (256, 7)], 

@@ -1,0 +1,25 @@
+Benchmark - gru_pq model:
+
+Memory usage (MB):
+Avg memory usage: 3.221MB
+Peak memory usage: 47.911MB
+
+Model inference latency on one batch (batch size = 1):
+Avg latency: 75.764ms
+Min latency: 66.073ms
+Max latency: 82.488ms
+
+Model inference throughput (batch size = 1):
+Throughput: 14.02 samples/sec
+
+Model inference CPU usage (number of logical cores) during runtime:
+CPU runtime: 3.56 seconds
+Average CPU usage: 35.79/96 cores
+
+Model (gru_pq) Macro-F1, Micro-F1 and Macro ROC AUC scores:
+Macro-F1 score: 0.44
+Micro-F1 score: 0.94
+Macro ROC AUC score: nan
+
+
+
