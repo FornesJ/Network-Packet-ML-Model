@@ -1,0 +1,18 @@
+Benchmark - split_plit_cnn_2 model:
+
+Memory usage (MB):
+Avg memory usage: 0.634MB
+Peak memory usage: 10.135MB
+
+Model inference latency on one batch (batch size = 1):
+Avg latency: 3.040ms
+Min latency: 2.756ms
+Max latency: 4.390ms
+
+Model inference throughput (batch size = 1):
+Throughput: 20.38 samples/sec
+
+Model inference CPU usage (number of logical cores) during runtime:
+CPU runtime: 2.40 seconds
+Average CPU usage: 0.48/8 cores
+
