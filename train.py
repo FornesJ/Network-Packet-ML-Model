@@ -26,7 +26,12 @@ class Model:
         self.split_model = split_model
 
         if self.split_model:
-            parameters = list(self.model.dpu_model.parameters()) + list(self.model.host_model.parameters())
+            if self.model.dpu_model == None:
+                parameters = self.model.host_model.parameters()
+            elif self.model.host_model == None:
+                parameters = self.model.dpu_model.parameters()
+            else:
+                parameters = list(self.model.dpu_model.parameters()) + list(self.model.host_model.parameters())
         else:
             parameters = self.model.parameters()
 
