@@ -320,9 +320,9 @@ fail:
     return EXIT_FAILURE;
 }
 
-int send_dpu_time(struct dpu_socket *socket_conf, float time) {
+int send_dpu_time(struct dpu_socket *socket_conf, double time) {
     // send time
-    int time_net = htonl(time);
+    double time_net = time;
     socket_conf->wc = send(socket_conf->fd, &time_net, sizeof(time_net), 0);
     if (socket_conf->wc < 0) {
         printf("\n Send time to host failed! \n");
@@ -336,7 +336,7 @@ int send_dpu_time(struct dpu_socket *socket_conf, float time) {
 
 int recv_host_time(struct host_socket *socket_conf, struct transfer_time *time) {
     // read time sent from dpu
-    int time_net;
+    double time_net;
     socket_conf->rc = recv(socket_conf->dpu_socket, &time_net, sizeof(time_net), 0);
     if (socket_conf->rc < 0) {
         printf("\n Failed to receive time from dpu! \n");
@@ -345,7 +345,7 @@ int recv_host_time(struct host_socket *socket_conf, struct transfer_time *time) 
         free(socket_conf);
         return EXIT_FAILURE;
     }
-    time->time = ntohl(time_net);
+    time->time = time_net;
 
     return EXIT_SUCCESS;
 }

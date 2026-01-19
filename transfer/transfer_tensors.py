@@ -41,7 +41,7 @@ class DPUSocket:
 
         # send_dpu_time
         self.send_dpu_time = self.socket_transfer.send_dpu_time
-        self.send_dpu_time.argtypes = [ctypes.c_void_p, ctypes.c_float]
+        self.send_dpu_time.argtypes = [ctypes.c_void_p, ctypes.c_double]
         self.send_dpu_time.restype = ctypes.c_int
 
         # Load environment variables from the .env file
@@ -91,8 +91,8 @@ class DPUSocket:
 
         # send time
         if t_time:
-            dpu_time = time.perf_counter()
-            if self.send_dpu_time(self.socket_ptr, ctypes.c_float(dpu_time)) != 0:
+            dpu_time = time.time()
+            if self.send_dpu_time(self.socket_ptr, ctypes.c_double(dpu_time)) != 0:
                 raise RuntimeError("send_dpu_time failed!")
 
         # start socket transfer
@@ -114,7 +114,7 @@ class HostSocket:
                     ("buffer", ctypes.POINTER(ctypes.c_float))]
     
     class CTime(ctypes.Structure):
-        _fields_ = [("time", ctypes.c_float)]
+        _fields_ = [("time", ctypes.c_double)]
         
     def __init__(self, so_file):
         self.socket_transfer = ctypes.CDLL(so_file)
@@ -212,7 +212,7 @@ class HostSocket:
         
         # host time
         if t_time:
-            host_time = time.perf_counter()
+            host_time = time.time()
             transfer_time = host_time - dpu_time
             self.free_transfer_time(ct_time_ptr)
 

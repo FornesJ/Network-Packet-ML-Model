@@ -19,7 +19,7 @@ model_conf = load_models.cnn_4
 split_model = load_models.get_model(split_conf)
 model = load_models.get_model(model_conf)
 model.load()
-dpu_sock = DPUSocket(so_file=conf.sock_so)
+dpu_sock = DPUSocket(so_file=conf.sock_so, localhost=False)
 location = "dpu"
 name = "split_" + split_conf["name"]
 result_path = os.path.join(conf.benchmark_dpu, "split_model", name + ".txt")
@@ -48,7 +48,8 @@ split_model.model.dpu_model = dpu_copy_model(model.model, dpu_model)
 # run benchmark
 benchmark = SplitBenchmark(split_model, test_loader, conf.batch_size, name, result_path, socket=dpu_sock, split=location)
 benchmark.open()
-benchmark.metrics()
+benchmark()
+benchmark.transfer_time()
 benchmark.close()
 
 # print and save result

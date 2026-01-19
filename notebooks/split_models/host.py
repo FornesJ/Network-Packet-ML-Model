@@ -58,8 +58,8 @@ split_model.model.host_model = host_copy_model(model.model, host_model, split_id
 # run benchmark
 benchmark = SplitBenchmark(split_model, test_loader, conf.batch_size, name, result_path, socket=host_sock, split=location)
 benchmark.open()
-benchmark.metrics()
-#benchmark.transfer_time()
+benchmark()
+benchmark.transfer_time()
 benchmark.close()
 
 # print and save result

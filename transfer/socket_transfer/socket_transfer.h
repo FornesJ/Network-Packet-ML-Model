@@ -35,7 +35,7 @@ struct tensor {
 };
 
 struct transfer_time {
-    float time;
+    double time;
 };
 
 struct tensor* alloc_tensor();
@@ -66,7 +66,7 @@ int send_dpu_buffer(struct dpu_socket *socket_conf, float* buffer, int size, int
 
 int recv_host_buffer(struct host_socket *socket_conf, struct tensor *new_tensor, int log);
 
-int send_dpu_time(struct dpu_socket *socket_conf, float time);
+int send_dpu_time(struct dpu_socket *socket_conf, double time);
 
 int recv_host_time(struct host_socket *socket_conf, struct transfer_time *time);
 
