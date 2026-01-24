@@ -5,7 +5,7 @@ from config import Config
 from loss_functions.loss import FocalLoss
 from model.split_model import SplitModel
 from train import Model
-from model.mlp import MLP, DPU_MLP, MLP_QP
+from model.mlp import MLP, DPU_MLP, QuantMLP
 from model.lstm import LSTM, DPU_LSTM, LSTM_QP
 from model.gru import GRU, DPU_GRU, GRU_QP
 from model.cnn import CNN, DPU_CNN, CNN_QP
@@ -25,11 +25,11 @@ class MLP_Models:
             "split_idx": 0
         }
 
-        self.mlp_pq = {
-            "name": "mlp_pq",
+        self.quant_mlp = {
+            "name": "quant_mlp",
             "hidden_sizes": [512, 256, 128, 64],
             "dropout": conf.dropout,
-            "checkpoint_path": os.path.join(conf.checkpoint, "pruned_quantized", "mlp_pq.pth"),
+            "checkpoint_path": os.path.join(conf.checkpoint, "pruned_quantized", "quant_mlp.pth"),
             "split": False,
             "split_idx": 0
         }
@@ -125,8 +125,8 @@ class MLP_Models:
         else:
             model = MLP(i_size=conf.mlp_input_size, 
                 hidden_sizes=model_conf["hidden_sizes"], 
-                dropout=model_conf["dropout"]).to(conf.device) if model_conf["name"] != "mlp_pq" else MLP_QP(
-                i_size=conf.mlp_input_size, 
+                dropout=model_conf["dropout"]).to(conf.device) if model_conf["name"] != "quant_mlp" else QuantMLP(
+                i_size=conf.mlp_input_size,
                 hidden_sizes=model_conf["hidden_sizes"], 
                 dropout=model_conf["dropout"]).to(conf.device)
         return Model(model=model,
@@ -504,8 +504,8 @@ class CNN_models:
         # full cnn model
         self.cnn_4 = {
             "name": "cnn_4",
-            "i_size": 1, 
-            "filters": [(32, 23), (64, 19), (128, 15), (192, 11), (256, 7)], 
+            "i_size": conf.input_size, 
+            "filters": [(32, 23, True), (64, 19, True), (128, 15, True), (192, 11, True), (256, 7, False)], 
             "linear_sizes": [512, 256], 
             "dropout": conf.dropout, 
             "flatten_size": 3328,
@@ -648,10 +648,10 @@ class CNN_models:
                     max_pool_last=model_conf["max_pool_last"]
                 ),
                 host_model=CNN(
-                    i_size=model_conf["i_size_host"],
+                    input_dim=model_conf["i_size_host"],
                     filters=model_conf["filters"][idx:],
                     linear_sizes=model_conf["linear_sizes"],
-                    flatten_size=model_conf["flatten_size"],
+                    flatten_dim=model_conf["flatten_size"],
                     dropout=model_conf["dropout"]
                 ) if idx < len(model_conf["filters"]) else MLP(
                     i_size=model_conf["flatten_size"], 
@@ -661,10 +661,10 @@ class CNN_models:
                 split=conf.location
             ).to(conf.device)
         else:
-            model = CNN(i_size=model_conf["i_size"],
+            model = CNN(input_dim=model_conf["i_size"],
                         filters=model_conf["filters"],
                         linear_sizes=model_conf["linear_sizes"],
-                        flatten_size=model_conf["flatten_size"],
+                        flatten_dim=model_conf["flatten_size"],
                         dropout=model_conf["dropout"]).to(conf.device) if model_conf["name"] != "cnn_pq" else CNN_QP(
                         i_size=model_conf["i_size"],
                         filters=model_conf["filters"],

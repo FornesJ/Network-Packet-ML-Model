@@ -108,6 +108,11 @@ def load_datasets(dataset_path, model_type):
     test_dataset_file = os.path.join(dataset_path, "test_dataset.pt")
     X_test, y_test = torch.load(test_dataset_file)
 
+    # change -1.0 to 0
+    X_train[X_train == -1.0] = 0.0
+    X_val[X_val == -1.0] = 0.0
+    X_test[X_test == -1.0] = 0.0
+
     # unsqueeze tensor to fit rnn or cnn models
     if model_type == "rnn":
         X_train, X_val, X_test = X_train.unsqueeze(-1), X_val.unsqueeze(-1), X_test.unsqueeze(-1)

@@ -1,22 +1,20 @@
 import torch
 import torch.nn as nn
-import torch.ao.quantization as quant
+from model.model_utils.normalization import L2ByteNorm
 
 class CNN(nn.Module):
-    def __init__(self, i_size, filters, linear_sizes, flatten_size, dropout, max_pool_last=False):
+    def __init__(self, input_dim, filters, linear_sizes, flatten_dim, dropout, classes=24):
         super().__init__()
         self.filters = filters
-        self.max_pool_last = max_pool_last
         self.conv_layers = len(filters)
+
+        # first layer norm:
+        self.ln1 = L2ByteNorm(idx=13, dim=2)
 
         # add convolutional layers and maxpool
         conv_layers = []
-        in_channels = i_size
-        for out_channels, kernel_size in filters:
-            # add MaxPool layer
-            if len(conv_layers) != 0:
-                conv_layers.append(nn.MaxPool1d(2))
-            
+        in_channels = 1
+        for out_channels, kernel_size, pool in filters:
             # add Conv + ReLu + Dropout layer
             conv_layers.append(nn.Sequential(
                 nn.Conv1d(in_channels, out_channels, kernel_size),
@@ -24,20 +22,20 @@ class CNN(nn.Module):
                 nn.Dropout(dropout)
             ))
 
+            # add MaxPool layer
+            if pool:
+                conv_layers.append(nn.MaxPool1d(2))
+            
             in_channels = out_channels # new in_channel is out channel
-        
-        if self.max_pool_last:
-            conv_layers.append(nn.MaxPool1d(2))
+        self.conv = nn.ModuleList(conv_layers) 
 
-        self.conv = nn.ModuleList(conv_layers) # 
-
-        # flatten and batch norm 
+        # flatten and layer norm
         self.flatten = nn.Flatten()
-        self.bn1 = nn.BatchNorm1d(flatten_size)
+        self.ln2 = nn.LayerNorm(flatten_dim)
 
         # add fully connected layers
         layers = []
-        in_dim = flatten_size
+        in_dim = flatten_dim
         for h in linear_sizes:
             layers.append(nn.Sequential(
                 nn.Linear(in_dim, h),
@@ -47,25 +45,26 @@ class CNN(nn.Module):
             in_dim = h
         self.linear = nn.ModuleList(layers)
 
-        # batch norm and output layer
-        self.bn2 = nn.BatchNorm1d(in_dim)
-        self.output = nn.Linear(in_dim, 24)
+        self.ln3 = nn.LayerNorm(in_dim)
+
+        # output layer
+        self.output = nn.Linear(in_dim, classes)
     
     def forward(self, x):
+        x = self.ln1(x)
         # Convolutional layers
         for conv in self.conv:
             x = conv(x)
         
-        # Flatten + BatchNorm
+        # Flatten
         x = self.flatten(x)
-        x = self.bn1(x)
 
         # Fully connected layers
         for layer in self.linear:
             x = layer(x)
         
-        # BN + Output layer
-        x = self.bn2(x)
+        x = self.ln3(x)
+        # Output layer
         out = self.output(x)
     
         return out

@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from config import Config
 from data.dataset import NetworkDataset, load_datasets
 from model_config import CNN_models, MLP_Models, LSTM_Models, GRU_Models
-from model.copy_param import dpu_copy_model
+from model.model_utils.copy_param import dpu_copy_model
 from transfer.transfer_tensors import DPUSocket
 from utils.benchmark import SplitBenchmark
 
