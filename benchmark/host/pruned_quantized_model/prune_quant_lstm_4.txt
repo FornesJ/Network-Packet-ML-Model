@@ -1,0 +1,25 @@
+Benchmark - lstm_4 model:
+
+Memory usage (MB):
+Avg memory usage: 5.596MB
+Peak memory usage: 135.404MB
+
+Model inference latency on one batch (batch size = 1):
+Avg latency: 150.574ms
+Min latency: 124.834ms
+Max latency: 176.165ms
+
+Model inference throughput (batch size = 1):
+Throughput: 5.93 samples/sec
+
+Model inference CPU usage (number of logical cores) during runtime:
+CPU runtime: 8.35 seconds
+Average CPU usage: 47.98/96 cores
+
+Model (lstm_4) Macro-F1, Micro-F1 and Macro ROC AUC scores:
+Macro-F1 score: 0.43
+Micro-F1 score: 0.84
+Macro ROC AUC score: nan
+
+
+

@@ -7,13 +7,11 @@ class CNN(nn.Module):
         super().__init__()
         self.filters = filters
         self.conv_layers = len(filters)
-
-        # first layer norm:
-        self.ln1 = L2ByteNorm(idx=13, dim=2)
+        self.embedding = L2ByteNorm(idx=13, dim=2)
 
         # add convolutional layers and maxpool
         conv_layers = []
-        in_channels = 1
+        in_channels = input_dim
         for out_channels, kernel_size, pool in filters:
             # add Conv + ReLu + Dropout layer
             conv_layers.append(nn.Sequential(
@@ -31,7 +29,7 @@ class CNN(nn.Module):
 
         # flatten and layer norm
         self.flatten = nn.Flatten()
-        self.ln2 = nn.LayerNorm(flatten_dim)
+        self.ln1 = nn.LayerNorm(flatten_dim)
 
         # add fully connected layers
         layers = []
@@ -43,28 +41,28 @@ class CNN(nn.Module):
                 nn.Dropout(dropout)
             ))
             in_dim = h
+
         self.linear = nn.ModuleList(layers)
-
-        self.ln3 = nn.LayerNorm(in_dim)
-
-        # output layer
+        self.ln2 = nn.LayerNorm(in_dim)
         self.output = nn.Linear(in_dim, classes)
     
     def forward(self, x):
-        x = self.ln1(x)
+        x = self.embedding(x)
+
         # Convolutional layers
         for conv in self.conv:
             x = conv(x)
         
-        # Flatten
+        # Flatten and layer norm
         x = self.flatten(x)
+        x = self.ln1(x)
 
         # Fully connected layers
         for layer in self.linear:
             x = layer(x)
         
-        x = self.ln3(x)
-        # Output layer
+        # Layer norm and output layer
+        x = self.ln2(x)
         out = self.output(x)
     
         return out

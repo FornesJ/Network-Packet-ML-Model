@@ -504,7 +504,7 @@ class CNN_models:
         # full cnn model
         self.cnn_4 = {
             "name": "cnn_4",
-            "i_size": conf.input_size, 
+            "i_size": 1, 
             "filters": [(32, 23, True), (64, 19, True), (128, 15, True), (192, 11, True), (256, 7, False)], 
             "linear_sizes": [512, 256], 
             "dropout": conf.dropout, 

@@ -1,78 +1,89 @@
+import copy
 import torch
 import torch.nn as nn
-import platform
 from config import Config
 from torch.utils.data import DataLoader
 from torch.ao.quantization.quantize_fx import prepare_fx, convert_fx
 import torch.ao.quantization as quant
 conf = Config()
 
-def dynamic_quantize(model: nn.Module) -> nn.Module:
+def dynamic_quantize(fp32_model: nn.Module, arch: str="x86") -> nn.Module:
     """
     Method for eager dynamic quantize for 
     Params:
         model (nn.Module): model to be quantized
-        model_type (str): type of model 'mlp' | 'rnn' | 'cnn'
     Reurn:
         quantized_rnn (nn.Module): Dynamic quantized model
     """
-    model.eval()
-    quantized_rnn = torch.quantization.quantize_dynamic(
-        model,
+    if arch == "x86":
+        backend = "fbgemm"
+    elif arch == "arm":
+        backend = "qnnpack"
+    else:
+        backend = ""
+        raise ValueError("arch for backend must be ether 'x86' or 'arm'!")
+    
+    # Set backend engine and qconfig
+    torch.backends.quantized.engine = backend
+
+    # Copy FP32 model and set to inference on cpu
+    model_to_quantize = copy.deepcopy(fp32_model)
+    model_to_quantize.cpu()
+    model_to_quantize.eval()
+
+    int8_model = torch.quantization.quantize_dynamic(
+        model_to_quantize,
         {nn.LSTM, nn.GRU, nn.Linear},       # only quantize safe ops
         dtype=torch.qint8
     )
 
-    return quantized_rnn
+    return int8_model
 
 
-def quantization_fx(
-    model: nn.Module,
+def static_quantization(
+    fp32_model: nn.Module,
     calibration_loader: DataLoader,
-    model_type: str
+    fp32_modules: list,
+    example_input: torch.Tensor,
+    arch: str="x86"
 ) -> nn.Module:
-
-    model.eval()
-    model.cpu()
-
-    if model_type == "rnn":
-        # nn.LSTM and nn.GRU do not support static quantization
-        # dynamic quantization on rnn layers
-        model.rnn = dynamic_quantize(model.rnn)
-
-    backend = "fbgemm"
+    
+    if arch == "x86":
+        backend = "fbgemm"
+    elif arch == "arm":
+        backend = "qnnpack"
+    else:
+        backend = ""
+        raise ValueError("arch for backend must be ether 'x86' or 'arm'!")
+    
+    # Set backend engine and qconfig
     torch.backends.quantized.engine = backend
-
     qconfig = quant.get_default_qconfig(backend)
 
-    qconfig_mapping = (
-        quant.QConfigMapping()
-            .set_global(qconfig)
-            .set_object_type(nn.Linear, qconfig)
-            .set_object_type(nn.Conv1d, qconfig)
-            .set_object_type(nn.ReLU, qconfig)
-            .set_object_type(nn.LeakyReLU, qconfig)
-            .set_object_type(nn.MaxPool1d, qconfig)
-            .set_object_type(nn.LayerNorm, None)
-    )
+    # Create qconfig mapping
+    qconfig_mapping = quant.QConfigMapping()
+    qconfig_mapping = qconfig_mapping.set_global(qconfig) #
+    for mod in fp32_modules:
+        qconfig_mapping = qconfig_mapping.set_module_name(mod, None) # FP32
 
-    # Example input
-    example_inputs, _ = next(iter(calibration_loader))
-    example_inputs = (example_inputs,)
+    # Copy FP32 model and set to inference on cpu
+    model_to_quantize = copy.deepcopy(fp32_model)
+    model_to_quantize.cpu()
+    model_to_quantize.eval()
 
-    # Prepare
-    prepared_model = prepare_fx(
-        model,
+    # Prepare model
+    prepared = prepare_fx(
+        model_to_quantize,
         qconfig_mapping,
-        example_inputs
+        example_inputs=(example_input,)
     )
 
-    # Calibration
+    # Calibrate model
     with torch.no_grad():
-        for x, _ in calibration_loader:
-            prepared_model(x)
-
-    # Convert
-    quantized_model = convert_fx(prepared_model)
-
-    return quantized_model
+        for i, (x, _) in enumerate(calibration_loader):
+            prepared(x)
+            if i*conf.batch_size > 1e4:
+                break
+    
+    # Quantized model with int8 weights
+    return convert_fx(prepared)

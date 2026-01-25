@@ -12,7 +12,7 @@ class L2ByteNorm(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # split data into [B,idx] and [B, L-idx]
         x_head, x_data = x.split(
-            [self.idx, x.shape[-1] - self.idx], 
+            [self.idx, x.shape[self.dim] - self.idx], 
             dim=self.dim)
 
         # Normalize and Scale head and payload 

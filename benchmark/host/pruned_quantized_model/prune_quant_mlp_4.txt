@@ -1,0 +1,25 @@
+Benchmark - mlp_4 model:
+
+Memory usage (MB):
+Avg memory usage: 0.002MB
+Peak memory usage: 0.039MB
+
+Model inference latency on one batch (batch size = 1):
+Avg latency: 0.472ms
+Min latency: 0.449ms
+Max latency: 0.653ms
+
+Model inference throughput (batch size = 1):
+Throughput: 1579.78 samples/sec
+
+Model inference CPU usage (number of logical cores) during runtime:
+CPU runtime: 0.03 seconds
+Average CPU usage: 47.75/96 cores
+
+Model (mlp_4) Macro-F1, Micro-F1 and Macro ROC AUC scores:
+Macro-F1 score: 0.04
+Micro-F1 score: 1.00
+Macro ROC AUC score: nan
+
+
+

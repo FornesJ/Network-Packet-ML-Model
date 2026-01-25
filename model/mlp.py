@@ -21,6 +21,7 @@ class MLP(nn.Module):
         layers = []
         in_dim = i_size
         self.hidden_sizes = hidden_sizes
+        self.embedding = L2ByteNorm(idx=13)
 
         for h in self.hidden_sizes:
             layers.append(nn.Sequential(
@@ -31,7 +32,7 @@ class MLP(nn.Module):
             in_dim = h
         
         self.linear = nn.ModuleList(layers)
-        self.bn = nn.BatchNorm1d(in_dim) # add batch norm
+        self.ln1 = nn.LayerNorm(in_dim) # add layer norm
         self.output = nn.Linear(in_dim, 24)
 
     def forward(self, x):
@@ -42,11 +43,13 @@ class MLP(nn.Module):
         Returns:
             out (torch.tensor): prediction output from linear layers
         """
+        x = self.embedding(x)
+
         for layer in self.linear:
             x = layer(x)
 
-        # BatchNorm + Output layer
-        x = self.bn(x)
+        # LayerNorm + Output layer
+        x = self.ln1(x)
         out = self.output(x)
 
         return out
