@@ -69,19 +69,16 @@ class CNN(nn.Module):
         
 
 class DPU_CNN(nn.Module):
-    def __init__(self, i_size, filters, flatten_size, dropout, max_pool_last=True):
+    def __init__(self, input_dim, filters, flatten_dim, dropout):
         super().__init__()
-        self.max_pool_last = max_pool_last
+        self.filters = filters
         self.conv_layers = len(filters)
+        self.embedding = L2ByteNorm(idx=13, dim=2)
 
         # add convolutional layers and maxpool
         conv_layers = []
-        in_channels = i_size
-        for out_channels, kernel_size in filters:
-            # add MaxPool layer
-            if len(conv_layers) != 0:
-                conv_layers.append(nn.MaxPool1d(2))
-            
+        in_channels = input_dim
+        for out_channels, kernel_size, pool in filters:
             # add Conv + ReLu + Dropout layer
             conv_layers.append(nn.Sequential(
                 nn.Conv1d(in_channels, out_channels, kernel_size),
@@ -89,37 +86,32 @@ class DPU_CNN(nn.Module):
                 nn.Dropout(dropout)
             ))
 
+            # add MaxPool layer
+            if pool:
+                conv_layers.append(nn.MaxPool1d(2))
+            
             in_channels = out_channels # new in_channel is out channel
-        
-        if self.max_pool_last:
-            conv_layers.append(nn.MaxPool1d(2))
+        self.conv = nn.ModuleList(conv_layers)
 
-        self.conv = nn.ModuleList(conv_layers) # conv layers
-
-        if self.max_pool_last == False:
-            # flatten and batch norm 
+        if len(self.filters) == 5:
+            # flatten and layer norm
             self.flatten = nn.Flatten()
-            self.bn1 = nn.BatchNorm1d(flatten_size)
+            self.ln1 = nn.LayerNorm(flatten_dim)
         else:
-            # flatten and batch norm 
+            # flatten and layer norm 
             self.flatten = None
-            self.bn1 = None
+            self.ln1 = None
 
     def forward(self, x):
+        x = self.embedding(x)
+
         # Convolutional layers
         for conv in self.conv:
             x = conv(x)
         
-        if not self.max_pool_last:
-            # Flatten + BatchNorm
+        if len(self.filters) == 5:
+            # Flatten + LayerNorm
             x = self.flatten(x)
-            x = self.bn1(x)
+            x = self.ln1(x)
         
         return x
-
-
-class CNN_QP(CNN):
-    def __init__(self, i_size, filters, linear_sizes, flatten_size, dropout, max_pool_last=False):
-        super().__init__(i_size, filters, linear_sizes, flatten_size, dropout, max_pool_last)
-        self.bn1 = nn.LayerNorm(flatten_size)
-        self.bn2 = nn.LayerNorm(linear_sizes[-1])

@@ -99,6 +99,7 @@ class DPU_LSTM(nn.Module):
         self.h_size = h_size
         self.n_layers = n_layers
         self.device = device
+        self.embedding = L2ByteNorm(idx=13)
 
         rnn_dropout = dropout if n_layers > 1 else 0.0 # can not have dropout with only one rnn layer
 
@@ -113,9 +114,11 @@ class DPU_LSTM(nn.Module):
         )
 
         if n_layers == 4:
-            self.bn1 = nn.BatchNorm1d(2 * h_size) # add batch norm
+            self.lh = LastHidden(self.rnn.num_layers, self.rnn.hidden_size) # [B, 2*size]
+            self.ln1 = nn.LayerNorm(2*self.h_size)
         else:
-            self.bn1 = None
+            self.lh = None
+            self.ln1 = None
 
 
     def forward(self, x):
@@ -126,6 +129,8 @@ class DPU_LSTM(nn.Module):
         Returns:
             out (torch.tensor): prediction output from linear layers
         """
+        x = self.embedding(x)
+
         h0 = torch.zeros(2*self.n_layers, x.shape[0], self.h_size).to(self.device)
         c0 = torch.zeros(2*self.n_layers, x.shape[0], self.h_size).to(self.device)
                 
@@ -133,16 +138,7 @@ class DPU_LSTM(nn.Module):
 
         if self.n_layers == 4:
             # h0 shape: [num_layers*2, B, size]
-            h_last = h0.view(self.n_layers, 2, x.shape[0], self.h_size)[-1] # [2, B, h_size]
-            h_last = torch.cat((h_last[0], h_last[1]), dim=1)               # [B, 2*h_size]
-            output = self.bn1(h_last)                                       # [B, 2*h_size] → batch norm
+            h_last = self.lh(h0)        # [B, 2*size]
+            output = self.ln1(h_last)   # [B, 2*h_size] → layernorm
 
         return output
-
-
-
-class LSTM_QP(LSTM):
-    def __init__(self, i_size, h_size, n_layers, linear_sizes, dropout, device):
-        super().__init__(i_size, h_size, n_layers, linear_sizes, dropout, device)
-        self.bn1 = nn.LayerNorm(2 * h_size)
-        self.bn2 = nn.LayerNorm(linear_sizes[-1])

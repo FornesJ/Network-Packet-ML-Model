@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from loss_functions.kd_loss import KD_Loss, RKD_Loss, Feature_Loss
 from model.model_utils.extract_features import FeatureExtractor
+from model.model_utils.hidden_state import LastHidden, AllHidden
 from config import Config
 conf = Config()
 
@@ -53,6 +54,10 @@ class KnowledgeDistillation:
             # add feature extractors to teacher and student model
             self.teacher_extractor = FeatureExtractor(teacher.model, self.type)
             self.student_extractor = FeatureExtractor(student.model, self.type)
+            if self.type == "rnn":
+                # Module to extarct last hidden state
+                self.teacher_hidden = LastHidden(num_layers=teacher.model.n_layers, hidden_dim=teacher.model.h_size)
+                self.student_hidden = LastHidden(num_layers=student.model.n_layers, hidden_dim=student.model.h_size)
 
         # if feature distillation: create adapter to reshape features from student and teacher
         if self.distillation == "feature":
@@ -66,11 +71,16 @@ class KnowledgeDistillation:
                 "Teacher and student must have eaqual number of hidden layers!"
                 s_sizes = [2 * self.student.model.h_size for _ in range(self.student.model.n_layers)]
                 t_sizes = [2 * self.teacher.model.h_size for _ in range(self.teacher.model.n_layers)]
+
+                # Module to extract all last hidden states
+                self.teacher_hidden = AllHidden(num_layers=teacher.model.n_layers, hidden_dim=teacher.model.h_size)
+                self.student_hidden = AllHidden(num_layers=student.model.n_layers, hidden_dim=student.model.h_size)
+
             elif self.type == "cnn":
                 assert self.student.model.conv_layers == self.teacher.model.conv_layers, \
                 "Teacher and student must have eaqual number of hidden layers!"
-                s_sizes = [ch for ch, _ in self.student.model.filters]
-                t_sizes = [ch for ch, _ in self.teacher.model.filters]
+                s_sizes = [ch for ch, _, _ in self.student.model.filters]
+                t_sizes = [ch for ch, _, _ in self.teacher.model.filters]
             else:
                 assert len(self.student.model.hidden_sizes) == len(self.teacher.model.hidden_sizes), \
                 "Teacher and student must have eaqual number of hidden layers!"
@@ -108,12 +118,8 @@ class KnowledgeDistillation:
                 s_feat = s_feat[0][1]
 
             # get last hidden state h_n
-            t_feat = t_feat.view(self.teacher.model.n_layers, 2, t_feat.shape[1], self.teacher.model.h_size)[-1] # last hidden [2, B, t_hidden]
-            s_feat = s_feat.view(self.student.model.n_layers, 2, s_feat.shape[1], self.student.model.h_size)[-1] # last hidden [2, B, s_hidden]
-
-            # reshape hidden state
-            t_feat = torch.cat((t_feat[0], t_feat[1]), dim=1) # [B, 2*t_hidden]
-            s_feat = torch.cat((s_feat[0], s_feat[1]), dim=1) # [B, 2*s_hidden]
+            t_feat = self.teacher_hidden(t_feat)
+            s_feat = self.student_hidden(s_feat)
 
         else:
             # feature from last hidden layer
@@ -143,12 +149,8 @@ class KnowledgeDistillation:
                 s_feat = s_feat[0][1]
 
             # get last hidden state h_n
-            t_feat = t_feat.view(self.teacher.model.n_layers, 2, t_feat.shape[1], self.teacher.model.h_size) # last hidden [N, 2, B, t_hidden]
-            s_feat = s_feat.view(self.student.model.n_layers, 2, s_feat.shape[1], self.student.model.h_size) # last hidden [N, 2, B, s_hidden]
-
-            # reshape hidden state
-            t_feat = torch.cat((t_feat[:,0], t_feat[:,1]), dim=2) # [N, B, 2*t_hidden]
-            s_feat = torch.cat((s_feat[:,0], s_feat[:,1]), dim=2) # [N, B, 2*s_hidden]
+            t_feat = self.teacher_hidden(t_feat)
+            s_feat = self.student_hidden(s_feat)
             
             # detach rnn features/hidden states
             new_t_feat = [feat.detach() for feat in t_feat]

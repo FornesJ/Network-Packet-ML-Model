@@ -5,10 +5,10 @@ from config import Config
 from loss_functions.loss import FocalLoss
 from model.split_model import SplitModel
 from train import Model
-from model.mlp import MLP, DPU_MLP, QuantMLP
-from model.lstm import LSTM, DPU_LSTM, LSTM_QP
-from model.gru import GRU, DPU_GRU, GRU_QP
-from model.cnn import CNN, DPU_CNN, CNN_QP
+from model.mlp import MLP, DPU_MLP
+from model.lstm import LSTM, DPU_LSTM
+from model.gru import GRU, DPU_GRU
+from model.cnn import CNN, DPU_CNN
 conf = Config()
 
 class MLP_Models:
@@ -24,16 +24,6 @@ class MLP_Models:
             "split": False,
             "split_idx": 0
         }
-
-        self.quant_mlp = {
-            "name": "quant_mlp",
-            "hidden_sizes": [512, 256, 128, 64],
-            "dropout": conf.dropout,
-            "checkpoint_path": os.path.join(conf.checkpoint, "pruned_quantized", "quant_mlp.pth"),
-            "split": False,
-            "split_idx": 0
-        }
-
 
 
         # light mlp model
@@ -125,10 +115,8 @@ class MLP_Models:
         else:
             model = MLP(i_size=conf.mlp_input_size, 
                 hidden_sizes=model_conf["hidden_sizes"], 
-                dropout=model_conf["dropout"]).to(conf.device) if model_conf["name"] != "quant_mlp" else QuantMLP(
-                i_size=conf.mlp_input_size,
-                hidden_sizes=model_conf["hidden_sizes"], 
                 dropout=model_conf["dropout"]).to(conf.device)
+            
         return Model(model=model,
             loss_function=FocalLoss(),
             conf=conf,
@@ -151,19 +139,6 @@ class LSTM_Models:
             "linear_sizes": [2*conf.hidden_size],
             "dropout": conf.dropout,
             "checkpoint_path": os.path.join(conf.checkpoint, "large_model", "lstm_4.pth"),
-            "split": False,
-            "split_idx": 0
-        }
-
-
-        self.lstm_pq = {
-            "name": "lstm_pq",
-            "i_size": conf.rnn_input_size,
-            "h_size": conf.hidden_size,
-            "n_layers": 4,
-            "linear_sizes": [2*conf.hidden_size],
-            "dropout": conf.dropout,
-            "checkpoint_path": os.path.join(conf.checkpoint, "pruned_quantized", "lstm_pq.pth"),
             "split": False,
             "split_idx": 0
         }
@@ -301,12 +276,6 @@ class LSTM_Models:
                         n_layers=model_conf["n_layers"], 
                         linear_sizes=model_conf["linear_sizes"], 
                         dropout=model_conf["dropout"], 
-                        device=conf.device).to(conf.device) if model_conf["name"] != "lstm_pq" else LSTM_QP(
-                        i_size=model_conf["i_size"], 
-                        h_size=model_conf["h_size"], 
-                        n_layers=model_conf["n_layers"], 
-                        linear_sizes=model_conf["linear_sizes"], 
-                        dropout=model_conf["dropout"], 
                         device=conf.device).to(conf.device)
             
         return Model(model=model,
@@ -331,18 +300,6 @@ class GRU_Models:
             "linear_sizes": [2*conf.hidden_size],
             "dropout": conf.dropout,
             "checkpoint_path": os.path.join(conf.checkpoint, "large_model", "gru_4.pth"),
-            "split": False,
-            "split_idx": 0
-        }
-
-        self.gru_pq = {
-            "name": "gru_pq",
-            "i_size": conf.rnn_input_size,
-            "h_size": conf.hidden_size,
-            "n_layers": 4,
-            "linear_sizes": [2*conf.hidden_size],
-            "dropout": conf.dropout,
-            "checkpoint_path": os.path.join(conf.checkpoint, "pruned_quantized", "gru_pq.pth"),
             "split": False,
             "split_idx": 0
         }
@@ -479,12 +436,6 @@ class GRU_Models:
                         n_layers=model_conf["n_layers"], 
                         linear_sizes=model_conf["linear_sizes"], 
                         dropout=model_conf["dropout"], 
-                        device=conf.device).to(conf.device) if model_conf["name"] != "gru_pq" else GRU_QP(
-                        i_size=model_conf["i_size"], 
-                        h_size=model_conf["h_size"], 
-                        n_layers=model_conf["n_layers"], 
-                        linear_sizes=model_conf["linear_sizes"], 
-                        dropout=model_conf["dropout"], 
                         device=conf.device).to(conf.device)
             
         return Model(model=model,
@@ -514,18 +465,6 @@ class CNN_models:
             "split_idx": 0
         }
 
-        self.cnn_pq = {
-            "name": "cnn_pq",
-            "i_size": 1, 
-            "filters": [(32, 23), (64, 19), (128, 15), (192, 11), (256, 7)], 
-            "linear_sizes": [512, 256], 
-            "dropout": conf.dropout, 
-            "flatten_size": 3328,
-            "checkpoint_path": os.path.join(conf.checkpoint, "pruned_quantized", "cnn_pq.pth"),
-            "split": False,
-            "split_idx": 0
-        }
-
 
 
         # light cnn model
@@ -533,7 +472,7 @@ class CNN_models:
             "name": "light_cnn_1",
             "distill_type": "relation",
             "i_size": 1, 
-            "filters": [(8, 7), (16, 5)], 
+            "filters": [(8, 7, True), (16, 5, False)], 
             "linear_sizes": [128, 64], 
             "dropout": conf.dropout, 
             "flatten_size": 3984,
@@ -546,7 +485,7 @@ class CNN_models:
             "name": "result_light_cnn_1",
             "distill_type": "response",
             "i_size": 1, 
-            "filters": [(8, 7), (16, 5)], 
+            "filters": [(8, 7, True), (16, 5, False)], 
             "linear_sizes": [128, 64], 
             "dropout": conf.dropout, 
             "flatten_size": 3984,
@@ -559,7 +498,7 @@ class CNN_models:
             "name": "light_cnn_4",
             "distill_type": "feature",
             "i_size": 1, 
-            "filters": [(16, 11), (32, 9), (64, 7), (128, 5), (192, 3)], 
+            "filters": [(16, 11, True), (32, 9, True), (64, 7, True), (128, 5, True), (192, 3, False)], 
             "linear_sizes": [512, 256], 
             "dropout": conf.dropout, 
             "flatten_size": 4608,
@@ -575,7 +514,7 @@ class CNN_models:
             "name": "split_cnn_3",
             "i_size": 1,
             "i_size_host": 64,
-            "filters": [(32, 23), (64, 19), (128, 15), (192, 11), (256, 7)], 
+            "filters": [(32, 23, True), (64, 19, True), (128, 15, True), (192, 11, True), (256, 7, False)], 
             "linear_sizes": [512, 256], 
             "dropout": conf.dropout, 
             "flatten_size": 3328,
@@ -589,7 +528,7 @@ class CNN_models:
             "name": "split_cnn_2",
             "i_size": 1,
             "i_size_host": 128,
-            "filters": [(32, 23), (64, 19), (128, 15), (192, 11), (256, 7)], 
+            "filters": [(32, 23, True), (64, 19, True), (128, 15, True), (192, 11, True), (256, 7, False)], 
             "linear_sizes": [512, 256], 
             "dropout": conf.dropout, 
             "flatten_size": 3328,
@@ -603,7 +542,7 @@ class CNN_models:
             "name": "split_cnn_1",
             "i_size": 1,
             "i_size_host": 192,
-            "filters": [(32, 23), (64, 19), (128, 15), (192, 11), (256, 7)], 
+            "filters": [(32, 23, True), (64, 19, True), (128, 15, True), (192, 11, True), (256, 7, False)], 
             "linear_sizes": [512, 256], 
             "dropout": conf.dropout, 
             "flatten_size": 3328,
@@ -617,7 +556,7 @@ class CNN_models:
             "name": "split_cnn_0",
             "i_size": 1,
             "i_size_host": 64,
-            "filters": [(32, 23), (64, 19), (128, 15), (192, 11), (256, 7)], 
+            "filters": [(32, 23, True), (64, 19, True), (128, 15, True), (192, 11, True), (256, 7, False)], 
             "linear_sizes": [512, 256], 
             "dropout": conf.dropout, 
             "flatten_size": 3328,
@@ -641,11 +580,10 @@ class CNN_models:
             idx = model_conf["split_idx"]
             model = SplitModel(
                 dpu_model=DPU_CNN(
-                    i_size=model_conf["i_size"],
+                    input_dim=model_conf["i_size"],
                     filters=model_conf["filters"][:idx],
-                    flatten_size=model_conf["flatten_size"],
-                    dropout=model_conf["dropout"],
-                    max_pool_last=model_conf["max_pool_last"]
+                    flatten_dim=model_conf["flatten_size"],
+                    dropout=model_conf["dropout"]
                 ),
                 host_model=CNN(
                     input_dim=model_conf["i_size_host"],
@@ -665,13 +603,8 @@ class CNN_models:
                         filters=model_conf["filters"],
                         linear_sizes=model_conf["linear_sizes"],
                         flatten_dim=model_conf["flatten_size"],
-                        dropout=model_conf["dropout"]).to(conf.device) if model_conf["name"] != "cnn_pq" else CNN_QP(
-                        i_size=model_conf["i_size"],
-                        filters=model_conf["filters"],
-                        linear_sizes=model_conf["linear_sizes"],
-                        flatten_size=model_conf["flatten_size"],
                         dropout=model_conf["dropout"]).to(conf.device)
-
+            
         return Model(model=model,
             loss_function=FocalLoss(),
             conf=conf,

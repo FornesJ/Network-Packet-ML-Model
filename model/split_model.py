@@ -26,6 +26,7 @@ class SplitModel(nn.Module):
             self.dpu_model = dpu_model
             self.host_model = host_model
         self.split = split
+        self.host_model.embedding = nn.Identity()
 
     def forward(self, x):
         """

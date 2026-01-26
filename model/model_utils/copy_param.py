@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from model.mlp import MLP
 
 def copy_lstm_layers(src, dst, src_start_layer):
     with torch.no_grad():
@@ -37,6 +38,13 @@ def copy_batch_norm(src, dst):
         dst.running_var.copy_(src.running_var)
         dst.num_batches_tracked.copy_(src.num_batches_tracked)
 
+def copy_layer_norm(src, dst):
+    assert src.normalized_shape == dst.normalized_shape
+    with torch.no_grad():
+        if src.elementwise_affine:
+            dst.weight.copy_(src.weight)
+            dst.bias.copy_(src.bias)
+
 def copy_conv_layers(src, dst):
     with torch.no_grad():
         dst.weight.copy_(src.weight)
@@ -53,6 +61,10 @@ def dpu_copy_model(model, dpu_model):
         if isinstance(mod, nn.BatchNorm1d):
             src_mod = getattr(model, name)
             copy_batch_norm(src_mod, mod)
+
+        if isinstance(mod, nn.LayerNorm):
+            src_mod = getattr(model, name)
+            copy_layer_norm(src_mod, mod)
 
         if isinstance(mod, (nn.LSTM, nn.GRU)):
             src_mod = model.get_submodule(name)
@@ -82,6 +94,12 @@ def host_copy_model(model, host_model, split_idx, type):
             if src_mod == None and name == "bn":
                 src_mod = getattr(model, "bn2")
             copy_batch_norm(src_mod, mod)
+
+        if isinstance(mod, nn.LayerNorm):
+            if type != "mlp" and isinstance(host_model, (MLP)):
+                name = "ln2"
+            src_mod = getattr(model, name)
+            copy_layer_norm(src_mod, mod)
 
         if isinstance(mod, (nn.LSTM, nn.GRU)):
             src_mod = model.get_submodule(name)
