@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.metrics import ConfusionMatrixDisplay
 from config import Config
 conf = Config()
 
@@ -137,5 +139,49 @@ def plot_loss(train_loss, val_loss, plot_path, n_epochs=conf.epochs):
         ax.legend(frameon=False)
 
     plt.tight_layout()
+    plt.savefig(plot_path, dpi=300, bbox_inches="tight")
+    plt.show()
+
+
+def plot_confusion_matrix(cm, class_names, plot_path):
+    # Global matplotlib settings (paper-friendly)
+    plt.rcParams.update({
+        "font.size": 9,
+        "axes.labelsize": 9,
+        "axes.titlesize": 10,
+        "xtick.labelsize": 8,
+        "ytick.labelsize": 8,
+        "figure.dpi": 300,
+        "savefig.dpi": 300,
+        "font.family": "serif"
+    })
+
+    disp = ConfusionMatrixDisplay(
+        confusion_matrix=cm,
+        display_labels=class_names,
+    )
+
+    disp.plot(include_values=False, cmap="Greys", values_format=None)
+    
+    ax = disp.ax_
+
+    # Square cells
+    ax.set_aspect("equal")
+
+    # Cell-aligned grid
+    n = disp.confusion_matrix.shape[0]
+    ax.set_xticks(np.arange(-0.5, n, 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, n, 1), minor=True)
+    ax.grid(which="minor", color="black", linestyle="-", linewidth=0.5)
+    ax.tick_params(which="minor", bottom=False, left=False)
+
+    # Rotate x-axis labels
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
+
+    # Clean spines
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+
+    #plt.tight_layout()
     plt.savefig(plot_path, dpi=300, bbox_inches="tight")
     plt.show()

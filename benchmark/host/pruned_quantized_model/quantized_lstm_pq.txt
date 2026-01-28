@@ -1,9 +1,0 @@
-Benchmark - lstm_pq model:
-
-Model (lstm_pq) Macro-F1, Micro-F1 and Macro ROC AUC scores:
-Macro-F1 score: 0.00
-Micro-F1 score: 0.00
-Macro ROC AUC score: nan
-
-
-

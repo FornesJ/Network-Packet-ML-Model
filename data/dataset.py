@@ -1,6 +1,6 @@
 import os
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Subset
 from sklearn.model_selection import StratifiedShuffleSplit
 import json
 
@@ -134,6 +134,21 @@ def get_label_dict(dataset_path):
         label_dict = json.load(file)
 
     return label_dict
+
+def get_subset(dataset, labels, max_instances=5):
+    idx = []        # indices to include in subset
+    idx_dict = {}   # map instances of each label
+
+    for i in range(24):
+        idx_dict[i] = 0
+
+    for i, label in enumerate(labels):
+        y = label.item()
+        if idx_dict[y] < max_instances:
+            idx_dict[y] += 1
+            idx.append(i)
+    
+    return Subset(dataset, idx), len(idx)
 
 
 if __name__ == "__main__":
