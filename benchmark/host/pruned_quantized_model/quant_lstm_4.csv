@@ -1,0 +1,20 @@
+Section,Metric,Value
+Info,Name,quant_lstm_4
+Info,Batch Size,1
+Info,Samples,117
+Info,Location,Host
+Memory,Avg. (MB),6.575
+Memory,Peak (MB),158.635
+Memory,Model (MB),0.002
+Latency,Total (ms),18998.323
+Latency,Avg. (ms),162.379
+Latency,Min (ms),154.368
+Latency,Max (ms),198.690
+Throughput,Runtime (s),10.13
+Throughput,Samples/s,6.22
+CPU,Runtime (s),18.08
+CPU,Avg. (cores),47.98/96
+Score,Macro-F1,0.66
+Score,Weighted-F1,0.70
+Score,Micro-F1,0.72
+Score,Macro ROC AUC,0.98

@@ -1,0 +1,20 @@
+Section,Metric,Value
+Info,Name,result_light_cnn_1
+Info,Batch Size,1
+Info,Samples,117
+Info,Location,Host
+Memory,Avg. (MB),0.050
+Memory,Peak (MB),0.748
+Memory,Model (MB),2.017
+Latency,Total (ms),52.512
+Latency,Avg. (ms),0.449
+Latency,Min (ms),0.424
+Latency,Max (ms),0.579
+Throughput,Runtime (s),10.00
+Throughput,Samples/s,1630.80
+CPU,Runtime (s),0.07
+CPU,Avg. (cores),48.60/96
+Score,Macro-F1,0.64
+Score,Weighted-F1,0.67
+Score,Micro-F1,0.70
+Score,Macro ROC AUC,0.97

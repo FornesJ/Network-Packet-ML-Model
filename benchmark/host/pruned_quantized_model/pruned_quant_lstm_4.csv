@@ -1,0 +1,20 @@
+Section,Metric,Value
+Info,Name,pruned_quant_lstm_4
+Info,Batch Size,1
+Info,Samples,117
+Info,Location,Host
+Memory,Avg. (MB),3.879
+Memory,Peak (MB),93.099
+Memory,Model (MB),0.001
+Latency,Total (ms),18951.972
+Latency,Avg. (ms),161.983
+Latency,Min (ms),140.107
+Latency,Max (ms),258.369
+Throughput,Runtime (s),10.06
+Throughput,Samples/s,6.46
+CPU,Runtime (s),18.81
+CPU,Avg. (cores),47.97/96
+Score,Macro-F1,0.41
+Score,Weighted-F1,0.43
+Score,Micro-F1,0.50
+Score,Macro ROC AUC,0.93

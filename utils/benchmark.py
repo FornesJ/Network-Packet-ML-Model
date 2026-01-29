@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import time
+import tracemalloc
 import psutil
 from torch.profiler import profiler
 from torch.profiler import profile, ProfilerActivity, record_function
@@ -33,13 +34,13 @@ class Benchmark:
         }
         self.df = pd.DataFrame()
     
-    def __call__(self, plot=False):
+    def __call__(self, plot=False, plot_path=""):
         self.warmup()
         self.memory_usage()
         self.latency()
         self.throughput()
         self.cpu_usage()
-        self.metrics(plot=plot)
+        self.metrics(plot=plot, plot_path=plot_path)
     
     def load_model(self):
         self.model.load()
@@ -68,6 +69,8 @@ class Benchmark:
                 self.model.model(data)
             if i == warmup:
                 break
+        
+        print("Warmup Done!")
     
     def latency(self):
         self.model.model.eval()
@@ -87,6 +90,8 @@ class Benchmark:
             "Max (ms)": f"{max(times)*1000:.3f}"
         }
 
+        print("Latency Benchmark Done!")
+
     def throughput(self, seconds=10):
         self.model.model.eval()
 
@@ -105,6 +110,8 @@ class Benchmark:
             "Runtime (s)": f"{elapsed:.2f}",
             "Samples/s": f"{count / elapsed:.2f}"
         }
+
+        print("Throughput Benchmark Done!")
     
     def cpu_usage(self):
         self.model.model.eval()
@@ -128,6 +135,8 @@ class Benchmark:
             "Avg. (cores)": f"{cpu_used / elapsed:.2f}/{psutil.cpu_count()}"
         }
 
+        print("CPU Benchmark Done!")
+
     def memory_usage(self):
         self.model.model.eval()
 
@@ -136,11 +145,13 @@ class Benchmark:
         with torch.profiler.profile(
                 activities=[profiler.ProfilerActivity.CPU],
                 profile_memory=True,
-                record_shapes=True
+                record_shapes=False
             ) as prof:
-                for data, _ in self.loader:
+                for i, (data, _) in enumerate(self.loader):
                     with torch.no_grad():
                         self.model.model(data)
+                    if i + 1 >= 10:
+                        break
         
         # peak memory during profiling
         memory_readings = [e.cpu_memory_usage for e in prof.key_averages()]
@@ -153,7 +164,9 @@ class Benchmark:
             "Model (MB)": f"{mem_size:.3f}"
         }
 
-    def metrics(self, plot=False):
+        print("Memory Benchmark Done!")
+
+    def metrics(self, plot=False, plot_path=""):
         self.model.model.eval()
         y_true, y_logits = [], []
 
@@ -180,9 +193,11 @@ class Benchmark:
             "Macro ROC AUC": f"{metrics['roc_auc_macro']:.2f}"
         }
 
+        print("Metrics Benchmark Done!")
+
         if plot:
-            roc_auc_path = os.path.join(os.getcwd().replace("notebooks/large_models", ""), "plots", conf.location, "large_model", "roc_auc_" + self.model_name + ".png")
-            cm_path = os.path.join(os.getcwd().replace("notebooks/large_models", ""), "plots", conf.location, "large_model", "cm_" + self.model_name + ".png")
+            roc_auc_path = os.path.join(plot_path, "roc_auc_" + self.model_name + ".png")
+            cm_path = os.path.join(plot_path, "cm_" + self.model_name + ".png")
             
             cm = confusion_matrix(y_true, y_preds, normalize="true")
             label_dict = get_label_dict(conf.datasets)

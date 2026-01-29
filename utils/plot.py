@@ -5,6 +5,7 @@ from config import Config
 conf = Config()
 
 def plot_precision_recall_f1(metrics, plot_path, n_epochs=conf.epochs):
+    plt.rcdefaults()
     plt.rcParams.update({
         "font.family": "serif",
         "font.size": 11,
@@ -63,6 +64,7 @@ def plot_precision_recall_f1(metrics, plot_path, n_epochs=conf.epochs):
 
 
 def plot_fpr_tpr_roc_auc(metrics, plot_path):
+    plt.rcdefaults()
     plt.rcParams.update({
         "font.family": "serif",
         "font.size": 11,
@@ -105,6 +107,7 @@ def plot_fpr_tpr_roc_auc(metrics, plot_path):
 
 
 def plot_loss(train_loss, val_loss, plot_path, n_epochs=conf.epochs):
+    plt.rcdefaults()
     plt.rcParams.update({
         "font.family": "serif",
         "font.size": 11,
@@ -144,6 +147,7 @@ def plot_loss(train_loss, val_loss, plot_path, n_epochs=conf.epochs):
 
 
 def plot_confusion_matrix(cm, class_names, plot_path):
+    plt.rcdefaults()
     # Global matplotlib settings (paper-friendly)
     plt.rcParams.update({
         "font.size": 9,
@@ -153,7 +157,8 @@ def plot_confusion_matrix(cm, class_names, plot_path):
         "ytick.labelsize": 8,
         "figure.dpi": 300,
         "savefig.dpi": 300,
-        "font.family": "serif"
+        "font.family": "serif",
+        "axes.grid": False,
     })
 
     disp = ConfusionMatrixDisplay(

@@ -1,0 +1,20 @@
+Section,Metric,Value
+Info,Name,pruned_quant_cnn_4
+Info,Batch Size,1
+Info,Samples,117
+Info,Location,Host
+Memory,Avg. (MB),0.075
+Memory,Peak (MB),1.401
+Memory,Model (MB),0.031
+Latency,Total (ms),162.450
+Latency,Avg. (ms),1.388
+Latency,Min (ms),1.259
+Latency,Max (ms),1.901
+Throughput,Runtime (s),10.00
+Throughput,Samples/s,649.13
+CPU,Runtime (s),0.17
+CPU,Avg. (cores),48.71/96
+Score,Macro-F1,0.64
+Score,Weighted-F1,0.68
+Score,Micro-F1,0.69
+Score,Macro ROC AUC,0.95

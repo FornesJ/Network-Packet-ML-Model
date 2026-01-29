@@ -1,0 +1,20 @@
+Section,Metric,Value
+Info,Name,result_light_mlp_1
+Info,Batch Size,1
+Info,Samples,117
+Info,Location,Host
+Memory,Avg. (MB),0.001
+Memory,Peak (MB),0.039
+Memory,Model (MB),0.132
+Latency,Total (ms),15.163
+Latency,Avg. (ms),0.130
+Latency,Min (ms),0.125
+Latency,Max (ms),0.161
+Throughput,Runtime (s),10.00
+Throughput,Samples/s,4152.48
+CPU,Runtime (s),0.02
+CPU,Avg. (cores),1.31/96
+Score,Macro-F1,0.48
+Score,Weighted-F1,0.51
+Score,Micro-F1,0.56
+Score,Macro ROC AUC,0.93
