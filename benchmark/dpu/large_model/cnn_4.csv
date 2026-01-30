@@ -1,0 +1,20 @@
+Section,Metric,Value
+Info,Name,cnn_4
+Info,Batch Size,1
+Info,Samples,117
+Info,Location,DPU
+Memory,Avg. (MB),0.493
+Memory,Peak (MB),13.174
+Memory,Model (MB),10.020
+Latency,Total (ms),1374.705
+Latency,Avg. (ms),11.750
+Latency,Min (ms),10.576
+Latency,Max (ms),24.866
+Throughput,Runtime (s),10.01
+Throughput,Samples/s,71.93
+CPU,Runtime (s),1.43
+CPU,Avg. (cores),5.55/8
+Score,Macro-F1,0.77
+Score,Weighted-F1,0.80
+Score,Micro-F1,0.81
+Score,Macro ROC AUC,0.99

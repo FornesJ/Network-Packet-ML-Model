@@ -82,7 +82,7 @@ def static_quantization(
     with torch.no_grad():
         for i, (x, _) in enumerate(calibration_loader):
             prepared(x)
-            if i*conf.batch_size > 1e4:
+            if i*conf.batch_size > 1000:
                 break
     
     # Quantized model with int8 weights

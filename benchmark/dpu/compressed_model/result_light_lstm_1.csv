@@ -1,0 +1,20 @@
+Section,Metric,Value
+Info,Name,result_light_lstm_1
+Info,Batch Size,1
+Info,Samples,117
+Info,Location,DPU
+Memory,Avg. (MB),0.088
+Memory,Peak (MB),1.299
+Memory,Model (MB),0.057
+Latency,Total (ms),3880.615
+Latency,Avg. (ms),33.168
+Latency,Min (ms),18.038
+Latency,Max (ms),618.758
+Throughput,Runtime (s),10.01
+Throughput,Samples/s,46.37
+CPU,Runtime (s),2.56
+CPU,Avg. (cores),6.94/8
+Score,Macro-F1,0.42
+Score,Weighted-F1,0.44
+Score,Micro-F1,0.50
+Score,Macro ROC AUC,0.96

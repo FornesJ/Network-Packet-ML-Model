@@ -1,0 +1,20 @@
+Section,Metric,Value
+Info,Name,quant_gru_4
+Info,Batch Size,1
+Info,Samples,117
+Info,Location,DPU
+Memory,Avg. (MB),2.360
+Memory,Peak (MB),60.467
+Memory,Model (MB),0.002
+Latency,Total (ms),68511.596
+Latency,Avg. (ms),585.569
+Latency,Min (ms),527.980
+Latency,Max (ms),1927.235
+Throughput,Runtime (s),10.29
+Throughput,Samples/s,1.75
+CPU,Runtime (s),70.02
+CPU,Avg. (cores),7.74/8
+Score,Macro-F1,0.69
+Score,Weighted-F1,0.72
+Score,Micro-F1,0.74
+Score,Macro ROC AUC,0.98

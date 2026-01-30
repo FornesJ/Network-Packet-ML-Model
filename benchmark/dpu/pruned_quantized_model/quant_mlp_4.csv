@@ -1,0 +1,20 @@
+Section,Metric,Value
+Info,Name,quant_mlp_4
+Info,Batch Size,1
+Info,Samples,117
+Info,Location,DPU
+Memory,Avg. (MB),0.002
+Memory,Peak (MB),0.039
+Memory,Model (MB),0.006
+Latency,Total (ms),540.631
+Latency,Avg. (ms),4.621
+Latency,Min (ms),3.694
+Latency,Max (ms),19.262
+Throughput,Runtime (s),10.00
+Throughput,Samples/s,184.01
+CPU,Runtime (s),0.65
+CPU,Avg. (cores),7.42/8
+Score,Macro-F1,0.64
+Score,Weighted-F1,0.67
+Score,Micro-F1,0.70
+Score,Macro ROC AUC,0.97

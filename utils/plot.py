@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from sklearn.metrics import ConfusionMatrixDisplay
 from config import Config
 conf = Config()
@@ -190,3 +191,32 @@ def plot_confusion_matrix(cm, class_names, plot_path):
     #plt.tight_layout()
     plt.savefig(plot_path, dpi=300, bbox_inches="tight")
     plt.show()
+
+
+def plot_benchmark(csv_path):
+    # Load CSV
+    df = pd.read_csv(csv_path)
+
+    # Remove Info section
+    df = df[df["Section"] != "Info"]
+
+    # Try converting values to numeric
+    df["NumericValue"] = pd.to_numeric(df["Value"], errors="coerce")
+
+    # Drop non-numeric values
+    df_numeric = df.dropna(subset=["NumericValue"])
+
+    # Create one plot per section
+    for section, section_df in df_numeric.groupby("Section"):
+        plt.figure(figsize=(8, 5))
+
+        plt.bar(
+            section_df["Metric"],
+            section_df["NumericValue"]
+        )
+
+        plt.title(section)
+        plt.ylabel("Value")
+        plt.xticks(rotation=45, ha="right")
+        plt.tight_layout()
+        plt.show()

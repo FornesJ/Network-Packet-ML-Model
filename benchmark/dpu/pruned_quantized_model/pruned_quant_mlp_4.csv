@@ -1,0 +1,20 @@
+Section,Metric,Value
+Info,Name,pruned_quant_mlp_4
+Info,Batch Size,1
+Info,Samples,117
+Info,Location,DPU
+Memory,Avg. (MB),0.002
+Memory,Peak (MB),0.039
+Memory,Model (MB),0.004
+Latency,Total (ms),410.157
+Latency,Avg. (ms),3.506
+Latency,Min (ms),2.938
+Latency,Max (ms),16.865
+Throughput,Runtime (s),10.00
+Throughput,Samples/s,197.79
+CPU,Runtime (s),0.67
+CPU,Avg. (cores),7.33/8
+Score,Macro-F1,0.58
+Score,Weighted-F1,0.61
+Score,Micro-F1,0.66
+Score,Macro ROC AUC,0.91

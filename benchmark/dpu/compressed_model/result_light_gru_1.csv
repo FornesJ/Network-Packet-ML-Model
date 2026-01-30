@@ -1,0 +1,20 @@
+Section,Metric,Value
+Info,Name,result_light_gru_1
+Info,Batch Size,1
+Info,Samples,117
+Info,Location,DPU
+Memory,Avg. (MB),0.396
+Memory,Peak (MB),7.518
+Memory,Model (MB),0.048
+Latency,Total (ms),46611.893
+Latency,Avg. (ms),398.392
+Latency,Min (ms),352.964
+Latency,Max (ms),1302.580
+Throughput,Runtime (s),10.12
+Throughput,Samples/s,2.57
+CPU,Runtime (s),47.41
+CPU,Avg. (cores),7.51/8
+Score,Macro-F1,0.31
+Score,Weighted-F1,0.32
+Score,Micro-F1,0.41
+Score,Macro ROC AUC,0.94

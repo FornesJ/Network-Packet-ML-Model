@@ -1,0 +1,20 @@
+Section,Metric,Value
+Info,Name,pruned_quant_gru_4
+Info,Batch Size,1
+Info,Samples,117
+Info,Location,DPU
+Memory,Avg. (MB),1.453
+Memory,Peak (MB),36.031
+Memory,Model (MB),0.001
+Latency,Total (ms),65361.386
+Latency,Avg. (ms),558.644
+Latency,Min (ms),523.428
+Latency,Max (ms),1934.992
+Throughput,Runtime (s),10.04
+Throughput,Samples/s,1.79
+CPU,Runtime (s),66.70
+CPU,Avg. (cores),7.84/8
+Score,Macro-F1,0.45
+Score,Weighted-F1,0.47
+Score,Micro-F1,0.55
+Score,Macro ROC AUC,0.94
