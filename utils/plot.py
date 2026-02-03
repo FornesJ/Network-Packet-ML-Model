@@ -193,30 +193,139 @@ def plot_confusion_matrix(cm, class_names, plot_path):
     plt.show()
 
 
-def plot_benchmark(csv_path):
-    # Load CSV
-    df = pd.read_csv(csv_path)
+def plot_benchmark(dpu_csv, host_csv, plot_path):
+
+    # -----------------------------
+    # Global matplotlib styling
+    # -----------------------------
+    plt.rcParams.update({
+        "font.family": "serif",
+        "font.size": 11,
+        "axes.titlesize": 12,
+        "axes.labelsize": 11,
+        "xtick.labelsize": 10,
+        "ytick.labelsize": 10,
+        "legend.fontsize": 10,
+        "figure.dpi": 300,
+        "axes.linewidth": 0.8,
+    })
+
+    # -----------------------------
+    # Load CSVs
+    # -----------------------------
+    dpu = pd.read_csv(dpu_csv)
+    host = pd.read_csv(host_csv)
 
     # Remove Info section
-    df = df[df["Section"] != "Info"]
+    dpu = dpu[dpu["Section"] != "Info"]
+    host = host[host["Section"] != "Info"]
 
-    # Try converting values to numeric
-    df["NumericValue"] = pd.to_numeric(df["Value"], errors="coerce")
+    # Convert numeric values only
+    dpu["Value"] = pd.to_numeric(dpu["Value"], errors="coerce")
+    host["Value"] = pd.to_numeric(host["Value"], errors="coerce")
 
-    # Drop non-numeric values
-    df_numeric = df.dropna(subset=["NumericValue"])
+    dpu = dpu.dropna(subset=["Value"])
+    host = host.dropna(subset=["Value"])
 
-    # Create one plot per section
-    for section, section_df in df_numeric.groupby("Section"):
-        plt.figure(figsize=(8, 5))
+    # Drop specific metrics
+    drop_rules = {
+        "Memory": ["Model (MB)"],
+        "Latency": ["Total (ms)"],
+        "Throughput": ["Runtime (s)"],
+    }
 
-        plt.bar(
-            section_df["Metric"],
-            section_df["NumericValue"]
+    def drop_metrics(df):
+        for section, metrics in drop_rules.items():
+            df = df[~((df["Section"] == section) & (df["Metric"].isin(metrics)))]
+        return df
+
+    dpu = drop_metrics(dpu)
+    host = drop_metrics(host)
+
+    # Merge Host & DPU
+    df = pd.merge(
+        dpu, host,
+        on=["Section", "Metric"],
+        suffixes=("_DPU", "_Host")
+    )
+
+    sections = df["Section"].unique()
+    n_sections = len(sections)
+
+    # -----------------------------
+    # Create subplots
+    # -----------------------------
+    fig, axes = plt.subplots(
+        n_sections, 1,
+        figsize=(7.5, 2.8 * n_sections),
+        sharex=False
+    )
+
+    if n_sections == 1:
+        axes = [axes]
+
+    for ax, section in zip(axes, sections):
+        sdf = df[df["Section"] == section]
+
+        x = np.arange(len(sdf))
+        width = 0.36
+
+        host_vals = sdf["Value_Host"]
+        dpu_vals = sdf["Value_DPU"]
+
+        # Bars (grayscale + hatch)
+        ax.bar(
+            x - width/2, host_vals, width,
+            label="Host",
+            color="0.75",
+            edgecolor="black",
+            linewidth=0.6
+        )
+        ax.bar(
+            x + width/2, dpu_vals, width,
+            label="DPU",
+            color="0.35",
+            edgecolor="black",
+            linewidth=0.6,
+            hatch="//"
         )
 
-        plt.title(section)
-        plt.ylabel("Value")
-        plt.xticks(rotation=45, ha="right")
-        plt.tight_layout()
-        plt.show()
+        # Gain / loss annotation
+        gain = (dpu_vals - host_vals) / host_vals * 100
+        for i, g in enumerate(gain):
+            ax.text(
+                x[i],
+                max(host_vals.iloc[i], dpu_vals.iloc[i]) * 1.03,
+                f"{g:+.1f}%",
+                ha="center",
+                va="bottom",
+                fontsize=9
+            )
+
+        # Axis formatting
+        ax.set_title(section, pad=6)
+        ax.set_ylabel("Value")
+        ax.set_xticks(x)
+        ax.set_xticklabels(sdf["Metric"], rotation=30, ha="right")
+
+        ax.grid(axis="y", linestyle=":", linewidth=0.6, alpha=0.6)
+        ax.set_axisbelow(True)
+
+        # Remove top/right spines
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+    # Legend (single, shared)
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(
+        handles, labels,
+        loc="upper center",
+        ncol=2,
+        frameon=False,
+        bbox_to_anchor=(0.5, 1.02)
+    )
+
+    plt.tight_layout(rect=[0, 0, 1, 0.98])
+    # save as vector PDF
+    plt.savefig(plot_path, bbox_inches="tight")
+    plt.show()
