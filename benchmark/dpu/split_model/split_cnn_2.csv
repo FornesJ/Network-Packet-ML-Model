@@ -1,0 +1,16 @@
+Section,Metric,Value
+Info,Name,split_cnn_2
+Info,Batch Size,1
+Info,Samples,117
+Info,Location,DPU
+Memory,Avg. (MB),0.460
+Memory,Peak (MB),10.136
+Memory,Model (MB),0.621
+Latency,Total (ms),411.120
+Latency,Avg. (ms),3.514
+Latency,Min (ms),3.140
+Latency,Max (ms),9.515
+Throughput,Runtime (s),10.05
+Throughput,Samples/s,20.50
+CPU,Runtime (s),5.58
+CPU,Avg. (cores),0.60/8

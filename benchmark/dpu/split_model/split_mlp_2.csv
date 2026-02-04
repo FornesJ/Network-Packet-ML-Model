@@ -1,0 +1,16 @@
+Section,Metric,Value
+Info,Name,split_mlp_2
+Info,Batch Size,1
+Info,Samples,117
+Info,Location,DPU
+Memory,Avg. (MB),0.003
+Memory,Peak (MB),0.039
+Memory,Model (MB),1.505
+Latency,Total (ms),324.129
+Latency,Avg. (ms),2.770
+Latency,Min (ms),2.382
+Latency,Max (ms),7.851
+Throughput,Runtime (s),10.03
+Throughput,Samples/s,20.74
+CPU,Runtime (s),5.46
+CPU,Avg. (cores),0.27/8

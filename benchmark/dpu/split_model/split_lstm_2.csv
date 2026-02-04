@@ -1,0 +1,16 @@
+Section,Metric,Value
+Info,Name,split_lstm_2
+Info,Batch Size,1
+Info,Samples,117
+Info,Location,DPU
+Memory,Avg. (MB),0.418
+Memory,Peak (MB),5.069
+Memory,Model (MB),0.510
+Latency,Total (ms),7077.843
+Latency,Avg. (ms),60.494
+Latency,Min (ms),53.118
+Latency,Max (ms),111.502
+Throughput,Runtime (s),10.07
+Throughput,Samples/s,6.95
+CPU,Runtime (s),12.90
+CPU,Avg. (cores),4.19/8

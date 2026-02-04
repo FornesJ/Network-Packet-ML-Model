@@ -21,12 +21,13 @@ class SplitModel(nn.Module):
         elif split == "host":
             self.dpu_model = None
             self.host_model = host_model
+            self.host_model.embedding = nn.Identity()
             del dpu_model
         else:
             self.dpu_model = dpu_model
             self.host_model = host_model
+            self.host_model.embedding = nn.Identity()
         self.split = split
-        self.host_model.embedding = nn.Identity()
 
     def forward(self, x):
         """

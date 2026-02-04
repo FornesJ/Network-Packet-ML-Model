@@ -1,0 +1,16 @@
+Section,Metric,Value
+Info,Name,split_gru_1
+Info,Batch Size,1
+Info,Samples,117
+Info,Location,DPU
+Memory,Avg. (MB),2.562
+Memory,Peak (MB),45.088
+Memory,Model (MB),0.667
+Latency,Total (ms),154597.286
+Latency,Avg. (ms),1321.344
+Latency,Min (ms),1198.741
+Latency,Max (ms),2629.554
+Throughput,Runtime (s),10.83
+Throughput,Samples/s,0.74
+CPU,Runtime (s),160.71
+CPU,Avg. (cores),7.30/8
