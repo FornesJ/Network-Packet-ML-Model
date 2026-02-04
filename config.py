@@ -34,4 +34,4 @@ class Config:
         self.dropout = 0.20
         self.epochs = 10
         self.batch_size = 1 #if self.device == "cuda" else 32
-        self.location = "dpu" # "dpu" "host"
+        self.location = "none" # "dpu" "host"

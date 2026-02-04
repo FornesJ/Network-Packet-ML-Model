@@ -194,7 +194,7 @@ def plot_confusion_matrix(cm, class_names, plot_path):
     plt.close()
 
 
-def plot_benchmark(dpu_csv, host_csv, plot_path):
+def plot_benchmark(dpu_csv, host_csv, plot_path, split=False):
 
     # -----------------------------
     # Global matplotlib styling
@@ -267,6 +267,10 @@ def plot_benchmark(dpu_csv, host_csv, plot_path):
         "Throughput": ["Runtime (s)"],
         "CPU": ["Runtime (s)"],
     }
+
+    if split:
+        drop_rules["Score"] = ["Macro-F1", "Weighted-F1", "Micro-F1", "Macro ROC AUC"]
+        drop_rules["Transfer"] = ["Avg.", "Min", "Max"]
 
     def drop_metrics(df):
         for section, metrics in drop_rules.items():
