@@ -13,8 +13,8 @@ endif
 
 SRC_HOST = dma_copy_host.c
 SRC_DPU  = dma_copy_dpu.c
-BIN_HOST = dma_copy_host
-BIN_DPU  = dma_copy_dpu
+BIN_HOST = dma_copy_host.so
+BIN_DPU  = dma_copy_dpu.so
 
 all: $(BIN_HOST) $(BIN_DPU)
 
