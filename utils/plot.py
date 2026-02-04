@@ -211,27 +211,59 @@ def plot_benchmark(dpu_csv, host_csv, plot_path):
     })
 
     # -----------------------------
-    # Load CSVs
+    # Helper: parse CPU cores
     # -----------------------------
-    dpu = pd.read_csv(dpu_csv)
-    host = pd.read_csv(host_csv)
+    def cores_to_percent(val):
+        """
+        Convert 'used/total' cores string to utilization percentage.
+        Example: '5.55/8' -> 69.4
+        """
+        try:
+            used, total = val.split("/")
+            return float(used) / float(total) * 100
+        except Exception:
+            return None
+
+    # -----------------------------
+    # Load raw CSVs (keep originals!)
+    # -----------------------------
+    dpu_raw = pd.read_csv(dpu_csv)
+    host_raw = pd.read_csv(host_csv)
 
     # Remove Info section
-    dpu = dpu[dpu["Section"] != "Info"]
-    host = host[host["Section"] != "Info"]
+    dpu_raw = dpu_raw[dpu_raw["Section"] != "Info"]
+    host_raw = host_raw[host_raw["Section"] != "Info"]
 
-    # Convert numeric values only
+    # -----------------------------
+    # Convert numeric metrics
+    # -----------------------------
+    dpu = dpu_raw.copy()
+    host = host_raw.copy()
+
     dpu["Value"] = pd.to_numeric(dpu["Value"], errors="coerce")
     host["Value"] = pd.to_numeric(host["Value"], errors="coerce")
 
+    # -----------------------------
+    # Handle CPU Avg. (cores)
+    # -----------------------------
+    for df_raw, df in [(dpu_raw, dpu), (host_raw, host)]:
+        cpu_mask = (df_raw["Section"] == "CPU") & (df_raw["Metric"] == "Avg. (cores)")
+        cpu_vals = df_raw.loc[cpu_mask, "Value"].apply(cores_to_percent)
+
+        df.loc[cpu_mask, "Value"] = cpu_vals
+        df.loc[cpu_mask, "Metric"] = "Avg. CPU Utilization (%)"
+
+    # Drop remaining non-numeric values
     dpu = dpu.dropna(subset=["Value"])
     host = host.dropna(subset=["Value"])
 
-    # Drop specific metrics
+    # -----------------------------
+    # Drop unwanted metrics
+    # -----------------------------
     drop_rules = {
-        "Memory": ["Model (MB)"],
         "Latency": ["Total (ms)"],
         "Throughput": ["Runtime (s)"],
+        "CPU": ["Runtime (s)"],
     }
 
     def drop_metrics(df):
@@ -242,7 +274,9 @@ def plot_benchmark(dpu_csv, host_csv, plot_path):
     dpu = drop_metrics(dpu)
     host = drop_metrics(host)
 
+    # -----------------------------
     # Merge Host & DPU
+    # -----------------------------
     df = pd.merge(
         dpu, host,
         on=["Section", "Metric"],
@@ -264,6 +298,18 @@ def plot_benchmark(dpu_csv, host_csv, plot_path):
     if n_sections == 1:
         axes = [axes]
 
+    def get_ylabel(section_name):
+        if section_name == "Memory":
+            return "MB"
+        elif section_name == "Latency":
+            return "ms"
+        elif section_name == "Throughput":
+            return "#/s"
+        elif section_name == "CPU":
+            return "%"
+        else:
+            return "Value"
+
     for ax, section in zip(axes, sections):
         sdf = df[df["Section"] == section]
 
@@ -273,7 +319,6 @@ def plot_benchmark(dpu_csv, host_csv, plot_path):
         host_vals = sdf["Value_Host"]
         dpu_vals = sdf["Value_DPU"]
 
-        # Bars (grayscale + hatch)
         ax.bar(
             x - width/2, host_vals, width,
             label="Host",
@@ -302,20 +347,17 @@ def plot_benchmark(dpu_csv, host_csv, plot_path):
                 fontsize=9
             )
 
-        # Axis formatting
         ax.set_title(section, pad=6)
-        ax.set_ylabel("Value")
+        ax.set_ylabel(get_ylabel(section))
         ax.set_xticks(x)
         ax.set_xticklabels(sdf["Metric"], rotation=30, ha="right")
 
         ax.grid(axis="y", linestyle=":", linewidth=0.6, alpha=0.6)
         ax.set_axisbelow(True)
-
-        # Remove top/right spines
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
 
-    # Legend (single, shared)
+    # Shared legend
     handles, labels = axes[0].get_legend_handles_labels()
     fig.legend(
         handles, labels,
@@ -326,6 +368,6 @@ def plot_benchmark(dpu_csv, host_csv, plot_path):
     )
 
     plt.tight_layout(rect=[0, 0, 1, 0.98])
-    # save as vector PDF
+
     plt.savefig(plot_path, bbox_inches="tight")
     plt.show()
