@@ -66,6 +66,7 @@ def plot_precision_recall_f1(metrics, plot_path, n_epochs=conf.epochs):
 
 def plot_fpr_tpr_roc_auc(metrics, plot_path):
     plt.rcdefaults()
+
     plt.rcParams.update({
         "font.family": "serif",
         "font.size": 11,
@@ -101,7 +102,7 @@ def plot_fpr_tpr_roc_auc(metrics, plot_path):
     plt.grid(alpha=0.3)
     plt.tight_layout()
     plt.savefig(plot_path, dpi=300, bbox_inches="tight")
-    plt.show()
+    plt.close()
 
 
 
@@ -190,7 +191,7 @@ def plot_confusion_matrix(cm, class_names, plot_path):
 
     #plt.tight_layout()
     plt.savefig(plot_path, dpi=300, bbox_inches="tight")
-    plt.show()
+    plt.close()
 
 
 def plot_benchmark(dpu_csv, host_csv, plot_path):
@@ -198,6 +199,7 @@ def plot_benchmark(dpu_csv, host_csv, plot_path):
     # -----------------------------
     # Global matplotlib styling
     # -----------------------------
+    plt.rcdefaults()
     plt.rcParams.update({
         "font.family": "serif",
         "font.size": 11,

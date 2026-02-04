@@ -1,0 +1,23 @@
+Section,Metric,Value
+Info,Name,split_cnn_2
+Info,Batch Size,1
+Info,Samples,117
+Info,Location,Host
+Memory,Avg. (MB),0.128
+Memory,Peak (MB),3.277
+Memory,Model (MB),9.399
+Latency,Total (ms),161.851
+Latency,Avg. (ms),1.383
+Latency,Min (ms),0.795
+Latency,Max (ms),4.117
+Throughput,Runtime (s),10.05
+Throughput,Samples/s,20.49
+CPU,Runtime (s),5.58
+CPU,Avg. (cores),6.51/96
+Score,Macro-F1,0.77
+Score,Weighted-F1,0.80
+Score,Micro-F1,0.81
+Score,Macro ROC AUC,0.99
+Transfer,Avg.,9.067
+Transfer,Min,0.624
+Transfer,Max,983.594

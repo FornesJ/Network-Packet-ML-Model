@@ -1,0 +1,23 @@
+Section,Metric,Value
+Info,Name,split_mlp_1
+Info,Batch Size,1
+Info,Samples,117
+Info,Location,Host
+Memory,Avg. (MB),0.002
+Memory,Peak (MB),0.020
+Memory,Model (MB),0.038
+Latency,Total (ms),15.053
+Latency,Avg. (ms),0.129
+Latency,Min (ms),0.069
+Latency,Max (ms),0.179
+Throughput,Runtime (s),10.04
+Throughput,Samples/s,20.71
+CPU,Runtime (s),5.68
+CPU,Avg. (cores),0.01/96
+Score,Macro-F1,0.64
+Score,Weighted-F1,0.68
+Score,Micro-F1,0.71
+Score,Macro ROC AUC,0.97
+Transfer,Avg.,50.711
+Transfer,Min,0.701
+Transfer,Max,889.130

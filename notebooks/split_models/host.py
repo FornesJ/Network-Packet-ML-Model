@@ -13,8 +13,8 @@ from utils.benchmark import SplitBenchmark
 
 
 params = {
-    "model": "mlp",
-    "split_index": 3
+    "model": "gru",
+    "split_index": 0
 }
 
 # setup model

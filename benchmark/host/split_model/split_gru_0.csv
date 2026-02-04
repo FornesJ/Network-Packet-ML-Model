@@ -1,0 +1,23 @@
+Section,Metric,Value
+Info,Name,split_gru_0
+Info,Batch Size,1
+Info,Samples,117
+Info,Location,Host
+Memory,Avg. (MB),0.002
+Memory,Peak (MB),0.020
+Memory,Model (MB),0.076
+Latency,Total (ms),24.388
+Latency,Avg. (ms),0.208
+Latency,Min (ms),0.165
+Latency,Max (ms),0.316
+Throughput,Runtime (s),10.71
+Throughput,Samples/s,0.47
+CPU,Runtime (s),221.44
+CPU,Avg. (cores),0.00/96
+Score,Macro-F1,0.67
+Score,Weighted-F1,0.71
+Score,Micro-F1,0.74
+Score,Macro ROC AUC,0.98
+Transfer,Avg.,43.323
+Transfer,Min,41.537
+Transfer,Max,45.429
