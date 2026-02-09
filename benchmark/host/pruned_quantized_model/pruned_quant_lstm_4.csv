@@ -5,7 +5,7 @@ Info,Samples,117
 Info,Location,Host
 Memory,Avg. (MB),3.879
 Memory,Peak (MB),93.099
-Memory,Model (MB),0.001
+Memory,Model (MB),0.157
 Latency,Total (ms),18951.972
 Latency,Avg. (ms),161.983
 Latency,Min (ms),140.107

@@ -15,21 +15,9 @@ import copy
 import warnings
 warnings.filterwarnings("ignore")
 
-def print_size(model):
-    size_model = 0
-    num_params = 0
-    for param in model.parameters():
-        if param.data.is_floating_point():
-            size_model += param.numel() * torch.finfo(param.data.dtype).bits
-        else:
-            size_model += param.numel() * torch.iinfo(param.data.dtype).bits
-        num_params += 1
-    print(f"model size: {size_model} / bit | {size_model / 8e6:.3f} / MB")
-    print(f"Num. params: {num_params}")
-
 params = {
     "quant": True,
-    "prune": False,
+    "prune": True,
     "model": "cnn"
 }
 
@@ -54,8 +42,6 @@ else:
 model = load_model.get_model(model_conf)
 model.load()
 print(conf.device)
-
-print_size(model.model)
 
 
 # data loader
@@ -137,18 +123,9 @@ if params["quant"]:
     quantize_model(model)
     named_comp += "quant_"
 
-print(model.model)
-
-# benchmark model
 name = named_comp + model_conf["name"]
-result_path = os.path.join(conf.benchmark_dpu, "pruned_quantized_model", name + ".csv")
-plot_path = os.path.join(conf.plot, conf.location, "pruned_quantized_model")
+checkpoint_path = os.path.join(conf.checkpoint, "pruned_quantized", name + ".pth")
+torch.save(model.model.state_dict(), checkpoint_path)
 
-benchmark = Benchmark(model, loader, conf.batch_size, name, result_path, runs=length)
-#benchmark(plot=True, plot_path=plot_path)
-benchmark.memory_usage()
-# print and save result
-benchmark.print_result()
-#benchmark.save()
-
-print_size(model.model)
+size_mb = os.path.getsize(checkpoint_path) / 1024**2
+print(f"Serialized model size: {size_mb:.3f} MB")

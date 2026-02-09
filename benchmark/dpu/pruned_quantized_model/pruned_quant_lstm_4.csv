@@ -5,7 +5,7 @@ Info,Samples,117
 Info,Location,DPU
 Memory,Avg. (MB),2.034
 Memory,Peak (MB),47.941
-Memory,Model (MB),0.001
+Memory,Model (MB),0.157
 Latency,Total (ms),64190.008
 Latency,Avg. (ms),548.633
 Latency,Min (ms),508.135

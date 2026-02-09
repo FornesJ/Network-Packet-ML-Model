@@ -8,6 +8,7 @@ class Config:
         self.checkpoint = os.path.join(self.root_folder, "checkpoint")
         self.benchmark_host = os.path.join(self.root_folder, "benchmark", "host")
         self.benchmark_dpu = os.path.join(self.root_folder, "benchmark", "dpu")
+        self.benchmark_comp = os.path.join(self.root_folder, "benchmark", "comp")
         self.transfer = os.path.join(self.root_folder, "transfer")
         self.compact = os.path.join(self.root_folder, "compact")
         self.loss_functions = os.path.join(self.root_folder, "loss_functions")
