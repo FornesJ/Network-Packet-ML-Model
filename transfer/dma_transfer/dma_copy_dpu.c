@@ -109,7 +109,22 @@ int main(int argc, char **argv) {
 
     // Initialize Core Structures
 
+    // initialize 
 
+
+    // set memrange
+    size_t len = 10;
+    result = doca_mmap_set_memrange(mmap, pci_addr_str, len);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to set mem range to mmap: %s\n", doca_error_get_descr(result));
+        goto fail_inventory;
+    }
+
+    result = doca_mmap_set_permissions(mmap, 0);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to set permissions to mmap: %s\n", doca_error_get_descr(result));
+        goto fail_inventory;
+    }
 
 
     // clean up!

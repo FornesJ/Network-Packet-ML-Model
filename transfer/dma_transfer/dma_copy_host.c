@@ -20,12 +20,115 @@
 #define BUF_SIZE 4096
 
 int main(int argc, char **argv) {
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s <device_index>\n", argv[0]);
-        return 1;
+    struct doca_devinfo **dev_info_list;
+    struct doca_devinfo *dev_info;
+    struct doca_dev *dev;
+	uint32_t nb_devs;
+    char pci_addr_str[DOCA_DEVINFO_PCI_ADDR_SIZE] = {};
+    struct doca_mmap *mmap;
+    struct doca_buf_inventory *buf_inventory;
+    struct doca_dma *dma;
+    size_t num_elements = 1;
+
+	doca_error_t result;
+	size_t i;
+
+    // get device
+
+    // get list of pci devices
+    result = doca_devinfo_create_list(&dev_info_list, &nb_devs);
+	if (result != DOCA_SUCCESS) {
+		printf("Failed to load doca devices list\n: %s", doca_error_get_descr(result));
+		return result;
+	}
+
+    uint8_t supported = 0;
+    // iterate through list of devices and get device that supports dma copy
+    for (i = 0; i < nb_devs; i++) {
+        result = doca_dma_cap_task_memcpy_is_supported((const struct doca_devinfo *) dev_info_list[i]);
+        if (result == DOCA_SUCCESS) {
+            dev_info = dev_info_list[i];
+            supported++;
+        }
     }
 
+    // open device
+    result = doca_dev_open(dev_info, &dev);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to open doca device: %s\n", doca_error_get_descr(result));
+		goto fail_devinfo;
+    }
+
+    // get pci address of device
+    result = doca_devinfo_get_pci_addr_str(dev_info, pci_addr_str);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to get pci addr from doca device: %s\n", doca_error_get_descr(result));
+		goto fail_devinfo;
+    }
+
+    printf("supported device: %d\n", supported);
+    printf("Number of devices: %d\n", nb_devs);
+    printf("Device address: %s\n", pci_addr_str);
+
+
+
+
+
+
+    // Creating DOCA Core Objects
+
+    // create mmap
+    result = doca_mmap_create(&mmap);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to create mmap: %s\n", doca_error_get_descr(result));
+        goto fail_dev;
+    }
+
+    // create buf inventory
+    result = doca_buf_inventory_create(num_elements, &buf_inventory);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to create buf inventory: %s\n", doca_error_get_descr(result));
+        goto fail_mmap;
+    }
+
+    // create dma
+    result = doca_dma_create(dev, &dma);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to create dma: %s\n", doca_error_get_descr(result));
+        goto fail_inventory;
+    }
+
+    printf("Created mmap, buf_inventory and dma!\n");
+
+
+
+
+
+    // Initialize Core Structures
+
+    // initialize mmap
+
+
+
+
+    // clean up!
+    doca_dma_destroy(dma);
+    doca_buf_inventory_destroy(buf_inventory);
+    doca_mmap_destroy(mmap);
+    doca_devinfo_destroy_list(dev_info_list);
+    doca_dev_close(dev);
     return 0;
+
+fail_inventory:
+    doca_buf_inventory_destroy(buf_inventory);
+fail_mmap:
+    doca_mmap_destroy(mmap);
+fail_dev:
+    doca_dev_close(dev);
+fail_devinfo:
+    doca_devinfo_destroy_list(dev_info_list);
+
+    return -1;
 }
 
 //int main(int argc, char **argv) {
