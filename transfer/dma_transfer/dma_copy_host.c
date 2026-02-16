@@ -26,6 +26,7 @@ int main(int argc, char **argv) {
 	uint32_t nb_devs;
     char pci_addr_str[DOCA_DEVINFO_PCI_ADDR_SIZE] = {};
     struct doca_mmap *mmap;
+    enum doca_access_flag mmap_access = DOCA_ACCESS_FLAG_PCI_READ_WRITE; // access flag for pci read/write to from device
     struct doca_buf_inventory *buf_inventory;
     struct doca_dma *dma;
     size_t num_elements = 1;
@@ -107,7 +108,43 @@ int main(int argc, char **argv) {
     // Initialize Core Structures
 
     // initialize mmap
+    // set memrange
+    size_t len = 1024;
+    result = doca_mmap_set_memrange(mmap, pci_addr_str, len);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to set mem range to mmap: %s\n", doca_error_get_descr(result));
+        goto fail_inventory;
+    }
 
+    // set mmap permissions based on access flags
+    result = doca_mmap_set_permissions(mmap, mmap_access);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to set permissions to mmap: %s\n", doca_error_get_descr(result));
+        goto fail_inventory;
+    }
+
+    // add device to mmap
+    result = doca_mmap_add_dev(mmap, dev);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to add device to mmap: %s\n", doca_error_get_descr(result));
+        goto fail_inventory;
+    }
+
+    // start mmap
+    result = doca_mmap_start(mmap);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to start mmap: %s\n", doca_error_get_descr(result));
+        goto fail_inventory;
+    }
+
+    // export mmap over PCI
+    const void* export_desc;
+    size_t export_desc_size = 1024;
+    result = doca_mmap_export_pci(mmap, dev, &export_desc, &export_desc_size);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to export mmap over rdma: %s\n", doca_error_get_descr(result));
+        goto fail_inventory;
+    }
 
 
 
