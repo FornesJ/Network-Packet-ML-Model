@@ -11,6 +11,10 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+
 #include <doca_ctx.h>
 #include <doca_dev.h>
 #include <doca_mmap.h>
@@ -21,6 +25,127 @@
 #include <doca_error.h>
 
 #define BUF_SIZE 4096
+#define PORT 8065
+#define HOST_ADDR "10.128.14.17"
+
+
+
+struct dpu_socket {
+    int fd;
+    int wc;
+    int rc;
+    int opt;
+    struct sockaddr_in host_addr;
+};
+
+struct export_conf {
+    void *export_desc;
+    size_t export_desc_len;
+};
+
+
+struct dpu_socket* alloc_dpu_sock() {
+    struct dpu_socket *s = malloc(sizeof(struct dpu_socket));
+    if (!s) return NULL;
+    return s;
+}
+
+
+void close_dpu_sock(struct dpu_socket *s) {
+    if (s) {
+        close(s->fd);
+        free(s);
+    }
+}
+
+
+
+int open_dpu_socket(struct dpu_socket *socket_conf) {
+    struct timeval tv;
+    // create dpu socket
+    socket_conf->fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (socket_conf->fd < 0) {
+        printf("\n Socket creation error \n");
+        goto fail;
+    }
+
+    tv.tv_sec = 100;
+    tv.tv_usec = 0;
+    if (setsockopt(socket_conf->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv))) {
+        perror("setsockopt");
+        goto fail;
+    }
+
+    socket_conf->host_addr.sin_family = AF_INET;
+    socket_conf->host_addr.sin_port = htons(PORT);
+
+    // Convert IPv4 and IPv6 addresses from text to binary form
+
+    char* host_address = HOST_ADDR;
+    socket_conf->wc = inet_pton(AF_INET, host_address, &socket_conf->host_addr.sin_addr);
+    if (socket_conf->wc < 0) {
+        printf("\n Function inet_pton failed! \n");
+        goto fail;
+    }
+    if (socket_conf->wc == 0) {
+        printf("\n Invalid address/ Address not supported! \n");
+        goto fail;
+    }
+
+    // connect to host
+    int countdown = 100;
+    while ((socket_conf->wc = 
+        connect(socket_conf->fd, (struct sockaddr*)&socket_conf->host_addr, sizeof(socket_conf->host_addr))
+    ) < 0) {
+        if (countdown <= 0) {
+            printf("\n Connecting to host timed out! \n");
+            goto fail;
+        }
+        sleep(1);
+        countdown--;
+    }
+
+    printf("Success, opend dpu socket and connected to host (%s) at port (%d)!\n", host_address, PORT);
+    return EXIT_SUCCESS;
+
+fail:
+    close(socket_conf->fd);
+    free(socket_conf);
+    return EXIT_FAILURE;
+}
+
+
+
+int recv_export_conf(struct dpu_socket *socket_conf, struct export_conf *export_conf) {
+    size_t len_net;
+    socket_conf->rc = recv(socket_conf->fd, &len_net, sizeof(size_t), 0);
+    if (socket_conf->rc < 0) {
+        printf("\n Wait for receiving export_desc_len timed out! \n");
+        close(socket_conf->fd);
+        free(socket_conf);
+        return EXIT_FAILURE;
+    }
+    export_conf->export_desc_len = ntohl(len_net);
+
+    void *recv_desc = malloc(export_conf->export_desc_len);
+    socket_conf->rc = recv(socket_conf->fd, recv_desc, export_conf->export_desc_len, 0);
+    if (socket_conf->rc < 0) {
+        printf("\n Wait for receiving export_desc timed out! \n");
+        close(socket_conf->fd);
+        free(socket_conf);
+        return EXIT_FAILURE;
+    }
+    export_conf->export_desc = recv_desc;
+    printf("Received export desc and export_desc_len from host!\n");
+    
+    return EXIT_SUCCESS;
+}
+
+
+
+
+
+
 
 int main(int argc, char **argv) {
     struct doca_devinfo **dev_info_list;
@@ -33,10 +158,14 @@ int main(int argc, char **argv) {
     struct doca_dma *dma;
     size_t num_elements = 1;
 
+    struct dpu_socket *dpu_sock;
+    struct export_conf export;
+
 	doca_error_t result;
+    int sock_result;
 	size_t i;
 
-    // get device
+    // initialize device
 
     // get list of pci devices
     result = doca_devinfo_create_list(&dev_info_list, &nb_devs);
@@ -45,15 +174,25 @@ int main(int argc, char **argv) {
 		return result;
 	}
 
+    int dev_idx = -1;
     uint8_t supported = 0;
     // iterate through list of devices and get device that supports dma copy
     for (i = 0; i < nb_devs; i++) {
         result = doca_dma_cap_task_memcpy_is_supported((const struct doca_devinfo *) dev_info_list[i]);
         if (result == DOCA_SUCCESS) {
-            dev_info = dev_info_list[i];
-            supported++;
+            uint8_t mmap_export;
+            result = doca_mmap_cap_is_create_from_export_pci_supported((const struct doca_devinfo *) dev_info_list[i], &mmap_export);
+            if (mmap_export > 0) {
+                supported++;
+                dev_idx = i;
+            }
         }
     }
+    if (dev_idx < 0) {
+        printf("No supported devices found: %s\n", doca_error_get_descr(result));
+		goto fail_devinfo;
+    }
+    dev_info = dev_info_list[dev_idx];
 
     // open device
     result = doca_dev_open(dev_info, &dev);
@@ -69,9 +208,48 @@ int main(int argc, char **argv) {
 		goto fail_devinfo;
     }
 
+    uint8_t export_sup;
+    result = doca_mmap_cap_is_export_pci_supported(dev_info, &export_sup);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to get pci support func from doca device: %s\n", doca_error_get_descr(result));
+		goto fail_devinfo;
+    }
+
     printf("supported device: %d\n", supported);
     printf("Number of devices: %d\n", nb_devs);
     printf("Device address: %s\n", pci_addr_str);
+    printf("Supported pci? %d\n", export_sup);
+    printf("\n");
+
+
+
+
+
+
+    // Open DPU sock, connect to host and recieve mmap export_desc from host
+    // initialize socket
+    dpu_sock = alloc_dpu_sock(dpu_sock);
+    if (dpu_sock == NULL) {
+        printf("Failed to alloc dpu socket!\n");
+        goto fail_dev;
+    }
+
+    // open dpu socket
+    sock_result = open_dpu_socket(dpu_sock);
+    if (sock_result != EXIT_SUCCESS) {
+        printf("Failed to open dpu socket!\n");
+        goto fail_dev;
+    }
+
+    // recieve export_desc and export_desc_len from host
+    sock_result = recv_export_conf(dpu_sock, &export);
+    if (sock_result != EXIT_SUCCESS) {
+        printf("Failed to receive export_conf from host!\n");
+        goto fail_dev;
+    }
+
+
+
 
 
 
@@ -79,12 +257,8 @@ int main(int argc, char **argv) {
 
 
     // Creating DOCA Core Objects
-
     // Import mmap from DPU/RDMA endpoint
-    const union doca_data user_data;
-    const void *export_desc;
-    size_t export_desc_len;
-    result = doca_mmap_create_from_export(&user_data, export_desc, export_desc_len, dev, &mmap);
+    result = doca_mmap_create_from_export(NULL, (const void *)export.export_desc, export.export_desc_len, dev, &mmap);
     if (result != DOCA_SUCCESS) {
         printf("Failed to create mmap from export: %s\n", doca_error_get_descr(result));
         goto fail_dev;
@@ -114,10 +288,19 @@ int main(int argc, char **argv) {
 
 
 
+
+
+
+
+
+
+
+
     // clean up!
     doca_dma_destroy(dma);
     doca_buf_inventory_destroy(buf_inventory);
     doca_mmap_destroy(mmap);
+    close_dpu_sock(dpu_sock);
     doca_devinfo_destroy_list(dev_info_list);
     doca_dev_close(dev);
     return 0;
