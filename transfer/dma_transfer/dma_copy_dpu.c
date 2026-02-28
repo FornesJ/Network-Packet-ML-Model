@@ -237,6 +237,7 @@ static void dma_memcpy_error_callback(struct doca_dma_task_memcpy *dma_task,
 	--*num_remaining_tasks;
 	/* Get the result of the task */
 	*result = doca_task_get_status(task);
+
 }
 
 
@@ -284,7 +285,7 @@ int main(int argc, char **argv) {
     struct export_conf export;
 
     // error handling and utils
-	doca_error_t result, task_result;
+	doca_error_t result, task_result, ctx_result;
     int sock_result;
 	size_t i;
 
@@ -522,12 +523,12 @@ int main(int argc, char **argv) {
         goto fail_buf_init;
     }
 
-    //// initialize data in src buffer
-    //result = doca_buf_set_data(src_buf, (void*)dpu_buffer, dpu_buffer_size);
-    //if (result != DOCA_SUCCESS) {
-    //    printf("Failed to dpu_buffer to doca_buf: %s\n", doca_error_get_descr(result));
-    //    goto fail_buf_init;
-    //}
+    // initialize data in src buffer
+    result = doca_buf_set_data(src_buf, (void*)dpu_buffer, dpu_buffer_size);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to dpu_buffer to doca_buf: %s\n", doca_error_get_descr(result));
+        goto fail_buf_init;
+    }
 
 
     // Initialize DMA
@@ -538,8 +539,10 @@ int main(int argc, char **argv) {
         goto fail_buf_init;
     }
 
-    doca_ctx_set_user_data(dma_ctx, ctx_user_data);
-    if (dma_ctx == NULL) {
+    uint32_t num_tasks = 1;
+    ctx_user_data.ptr = &num_tasks;
+    result = doca_ctx_set_user_data(dma_ctx, ctx_user_data);
+    if (result != DOCA_SUCCESS) {
         printf("Failed to set ctx user data: %s\n", doca_error_get_descr(result));
         goto fail_ctx;
     }
@@ -596,21 +599,21 @@ int main(int argc, char **argv) {
 		goto fail_task;
 	}
     printf("task submit!\n");
-    usleep(20000000);
+    //usleep(20000000);
 
-    //while (true) {
-    //    if (doca_pe_progress(pe) == 0) {
-    //        nanosleep(&ts, &ts);
-    //    } else {
-    //        break;
-    //    }
-    //}
+    while (true) {
+        if (doca_pe_progress(pe) == 0) {
+            nanosleep(&ts, &ts);
+        } else {
+            break;
+        }
+    }
 
 
     if (task_result == DOCA_SUCCESS) {
         printf("DMA copy Success!\n");
     } else {
-        printf("DMA memcpy task failed: %s", doca_error_get_descr(task_result));
+        printf("DMA memcpy task failed: %s\n", doca_error_get_descr(task_result));
     }
 
     result = task_result;
@@ -620,6 +623,7 @@ int main(int argc, char **argv) {
 
 
     // clean up!
+    doca_buf_dec_refcount(src_buf, NULL);
     doca_task_free(task);
     doca_ctx_stop(dma_ctx);
     //doca_buf_dec_refcount(src_buf, NULL);

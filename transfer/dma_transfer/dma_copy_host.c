@@ -387,7 +387,7 @@ int main(int argc, char **argv) {
     }
 
     printf("exported mmap!\n");
-    usleep(20000000);
+    usleep(10000000);
 
     printf("From DMA copy: %s\n", host_buffer);
 
