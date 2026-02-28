@@ -11,6 +11,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <stdbool.h>
+#include <time.h>
+#include <limits.h>
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -44,7 +47,6 @@ struct export_conf {
     void *export_desc;
     size_t export_desc_len;
     void *export_buf_addr;
-    size_t export_buf_size;
 };
 
 
@@ -120,6 +122,31 @@ fail:
 
 
 
+
+
+
+int send_buffer_size(struct dpu_socket *socket_conf, size_t buffer_size) {
+    size_t size_net;
+
+    size_net = htonl(buffer_size);
+    socket_conf->wc = send(socket_conf->fd, &size_net, sizeof(size_t), 0);
+    if (socket_conf->wc < 0) {
+        printf("\n Send buffer size to dpu failed! \n");
+        close(socket_conf->fd);
+        free(socket_conf);
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
+}
+
+
+
+
+
+
+
+
 int recv_export_conf(struct dpu_socket *socket_conf, struct export_conf *export_conf) {
     size_t len_net;
 
@@ -152,18 +179,6 @@ int recv_export_conf(struct dpu_socket *socket_conf, struct export_conf *export_
     }
     export_conf->export_buf_addr = (void *)recv_addr;
 
-    socket_conf->rc = recv(socket_conf->fd, &len_net, sizeof(size_t), 0);
-    if (socket_conf->rc < 0) {
-        printf("\n Wait for receiving export_buf_size timed out! \n");
-        close(socket_conf->fd);
-        free(socket_conf);
-        return EXIT_FAILURE;
-    }
-    export_conf->export_buf_size = ntohl(len_net);
-    
-
-
-
     printf("Received export_conf from host!\n");
     
     return EXIT_SUCCESS;
@@ -192,6 +207,7 @@ static void dma_memcpy_completed_callback(struct doca_dma_task_memcpy *dma_task,
 					  union doca_data task_user_data,
 					  union doca_data ctx_user_data)
 {
+    printf("callback_called!\n");
 	size_t *num_remaining_tasks = (size_t *)ctx_user_data.ptr;
 	doca_error_t *result = (doca_error_t *)task_user_data.ptr;
 
@@ -257,16 +273,45 @@ int main(int argc, char **argv) {
     struct doca_dma *dma;
     struct doca_ctx *dma_ctx;
     struct doca_pe *pe;
-    size_t num_elements = 1;
+    size_t num_elements = 2;
+    struct doca_dma_task_memcpy *dma_task;
+    struct doca_task *task;
+    union doca_data ctx_user_data = {0};
+    union doca_data task_user_data = {0};
 
     // structs for socket communication and export conf
     struct dpu_socket *dpu_sock;
     struct export_conf export;
 
     // error handling and utils
-	doca_error_t result;
+	doca_error_t result, task_result;
     int sock_result;
 	size_t i;
+
+
+    struct timespec ts = {
+		.tv_sec = 0,
+		.tv_nsec = 20000000,
+	};
+
+
+    // initialize message
+    char* msg = "Hello there from DPU!";
+
+    // alloc memory for dpu buffer
+    dpu_buffer_size = strlen(msg) + 1;
+    dpu_buffer = (char*)malloc(dpu_buffer_size);
+    if (dpu_buffer == NULL) {
+        result = DOCA_ERROR_NO_MEMORY;
+        printf("Failed to alloc memory to host_buffer: %s\n", doca_error_get_descr(result));
+        return -1;
+    }
+
+    // copy message in to buffer
+    memcpy(dpu_buffer, msg, dpu_buffer_size);
+
+
+
 
 
 
@@ -278,7 +323,8 @@ int main(int argc, char **argv) {
     result = doca_devinfo_create_list(&dev_info_list, &nb_devs);
 	if (result != DOCA_SUCCESS) {
 		printf("Failed to load doca devices list\n: %s", doca_error_get_descr(result));
-		return result;
+        free(dpu_buffer);
+		return -1;
 	}
 
     int dev_idx = -1;
@@ -353,6 +399,13 @@ int main(int argc, char **argv) {
         goto fail_dev;
     }
 
+    // send dpu_buffer size
+    sock_result = send_buffer_size(dpu_sock, dpu_buffer_size);
+    if (sock_result != EXIT_SUCCESS) {
+        printf("Failed to send dpu buffer size to host!\n");
+        goto fail_dev;
+    }
+
     // recieve export_desc and export_desc_len from host
     sock_result = recv_export_conf(dpu_sock, &export);
     if (sock_result != EXIT_SUCCESS) {
@@ -360,7 +413,7 @@ int main(int argc, char **argv) {
         goto fail_dev;
     }
 
-    printf("export_desc_len: %ld ,export_buf_addr: %p, export_buf_size: %ld\n", export.export_desc_len, export.export_buf_addr, export.export_buf_size);
+    printf("export_desc_len: %ld ,export_buf_addr: %p\n", export.export_desc_len, export.export_buf_addr);
 
 
 
@@ -425,35 +478,56 @@ int main(int argc, char **argv) {
     // Initialize Core Structures
 
     //Initialize local mmap
-    // alloc memory for dpu buffer
-    dpu_buffer_size = export.export_buf_size;
-    dpu_buffer = (char*)malloc(dpu_buffer_size);
-    if (dpu_buffer == NULL) {
-        result = DOCA_ERROR_NO_MEMORY;
-        printf("Failed to alloc memory to host_buffer: %s\n", doca_error_get_descr(result));
-        goto fail_pe;
-    }
-
     result = doca_mmap_set_memrange(local_mmap, dpu_buffer, dpu_buffer_size);
     if (result != DOCA_SUCCESS) {
         printf("Failed to set local mmap memrange: %s\n", doca_error_get_descr(result));
-        goto fail_dpu_buffer;
+        goto fail_pe;
     }
 
     // add device to mmap
     result = doca_mmap_add_dev(local_mmap, dev);
     if (result != DOCA_SUCCESS) {
         printf("Failed to add device to local mmap: %s\n", doca_error_get_descr(result));
-        goto fail_dpu_buffer;
+        goto fail_pe;
     }
 
     // start mmap
     result = doca_mmap_start(local_mmap);
     if (result != DOCA_SUCCESS) {
         printf("Failed to start local mmap: %s\n", doca_error_get_descr(result));
-        goto fail_dpu_buffer;
+        goto fail_pe;
     }
 
+
+
+    // Init Doca buffers
+    // Initialize doca buffers and buffer inventory
+    result = doca_buf_inventory_start(buf_inventory);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to start buf_inventory: %s\n", doca_error_get_descr(result));
+        goto fail_pe;
+    }
+    
+    // initialize src buffer
+    result = doca_buf_inventory_buf_get_by_data(buf_inventory, local_mmap, (void*)dpu_buffer, dpu_buffer_size, &src_buf);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to initialize src_buf representing buffer on DPU: %s\n", doca_error_get_descr(result));
+        goto fail_buf_init;
+    }
+
+    // initialize dst buffer
+    result = doca_buf_inventory_buf_get_by_data(buf_inventory, remote_mmap, export.export_buf_addr, dpu_buffer_size, &dst_buf);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to initialize dst_buf representing buffer on host: %s\n", doca_error_get_descr(result));
+        goto fail_buf_init;
+    }
+
+    //// initialize data in src buffer
+    //result = doca_buf_set_data(src_buf, (void*)dpu_buffer, dpu_buffer_size);
+    //if (result != DOCA_SUCCESS) {
+    //    printf("Failed to dpu_buffer to doca_buf: %s\n", doca_error_get_descr(result));
+    //    goto fail_buf_init;
+    //}
 
 
     // Initialize DMA
@@ -461,7 +535,13 @@ int main(int argc, char **argv) {
     dma_ctx = doca_dma_as_ctx(dma);
     if (dma_ctx == NULL) {
         printf("Failed to create dma ctx: %s\n", doca_error_get_descr(result));
-        goto fail_dpu_buffer;
+        goto fail_buf_init;
+    }
+
+    doca_ctx_set_user_data(dma_ctx, ctx_user_data);
+    if (dma_ctx == NULL) {
+        printf("Failed to set ctx user data: %s\n", doca_error_get_descr(result));
+        goto fail_ctx;
     }
 
     // set DMA task memcopy config
@@ -469,49 +549,81 @@ int main(int argc, char **argv) {
                                             dma_memcpy_error_callback, 1);
     if (result != DOCA_SUCCESS) {
         printf("Failed to set config to dma task memcopy: %s\n", doca_error_get_descr(result));
-        goto fail_dpu_buffer;
+        goto fail_buf_init;
     }
-
-
-
-    // Initialize doca buffers and buffer inventory
-
-
-
-
-
-
-
-    // Start Task
 
     // connect Progress Engine to a Context
     result = doca_pe_connect_ctx(pe, dma_ctx);
     if (result != DOCA_SUCCESS) {
         printf("Failed to connect pe to dma ctx: %s\n", doca_error_get_descr(result));
-        goto fail_dpu_buffer;
+        goto fail_ctx;
     }
 
     // start Context
     result = doca_ctx_start(dma_ctx);
     if (result != DOCA_SUCCESS) {
         printf("Failed to create dma: %s\n", doca_error_get_descr(result));
-        goto fail_dpu_buffer;
+        goto fail_buf_init;
+    }
+
+    task_user_data.ptr = &task_result;
+    // init dma copy task
+    result = doca_dma_task_memcpy_alloc_init(dma, src_buf, dst_buf, task_user_data, &dma_task);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to init dma_task for memcpy alloc: %s\n", doca_error_get_descr(result));
+        goto fail_buf_init;
+    }
+
+    task = doca_dma_task_memcpy_as_task(dma_task);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to create task: %s\n", doca_error_get_descr(result));
+        goto fail_buf_init;
     }
 
 
+    printf("Initialized Local mmap, and buf_inventory, doca dma ctx, and dma memcpy task!\n");
 
 
 
 
 
+
+
+    // Submit dma task and wait for pe to finish
+    result = doca_task_submit(task);
+	if (result != DOCA_SUCCESS) {
+		printf("Failed to submit DMA task: %s", doca_error_get_descr(result));
+		goto fail_task;
+	}
+    printf("task submit!\n");
+    usleep(20000000);
+
+    //while (true) {
+    //    if (doca_pe_progress(pe) == 0) {
+    //        nanosleep(&ts, &ts);
+    //    } else {
+    //        break;
+    //    }
+    //}
+
+
+    if (task_result == DOCA_SUCCESS) {
+        printf("DMA copy Success!\n");
+    } else {
+        printf("DMA memcpy task failed: %s", doca_error_get_descr(task_result));
+    }
+
+    result = task_result;
 
 
 
 
 
     // clean up!
+    doca_task_free(task);
     doca_ctx_stop(dma_ctx);
-    free(dpu_buffer);
+    //doca_buf_dec_refcount(src_buf, NULL);
+    doca_buf_inventory_stop(buf_inventory);
     doca_pe_destroy(pe);
     doca_dma_destroy(dma);
     doca_buf_inventory_destroy(buf_inventory);
@@ -520,14 +632,17 @@ int main(int argc, char **argv) {
     close_dpu_sock(dpu_sock);
     doca_devinfo_destroy_list(dev_info_list);
     doca_dev_close(dev);
+    free(dpu_buffer);
+
     return 0;
 
 
-
+fail_task:
+    doca_task_free(task);
 fail_ctx:
     doca_ctx_stop(dma_ctx);
-fail_dpu_buffer:
-    free(dpu_buffer);
+fail_buf_init:
+    doca_buf_inventory_stop(buf_inventory);
 fail_pe:
     doca_pe_destroy(pe);
 fail_dma:
@@ -541,6 +656,7 @@ fail_dev:
     doca_dev_close(dev);
 fail_devinfo:
     doca_devinfo_destroy_list(dev_info_list);
+    free(dpu_buffer);
 
     return -1;
 }

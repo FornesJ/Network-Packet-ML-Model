@@ -41,7 +41,6 @@ struct export_conf {
     void *export_desc;
     size_t export_desc_len;
     void *export_buf_addr;
-    size_t export_buf_size;
 };
 
 
@@ -125,6 +124,24 @@ fail:
 
 
 
+int recv_buffer_size(struct host_socket *socket_conf, size_t *buffer_size) {
+    size_t size_net;
+
+    socket_conf->rc = recv(socket_conf->dpu_socket, &size_net, sizeof(size_t), 0);
+    if (socket_conf->rc < 0) {
+        printf("\n Wait for receiving export_desc_len timed out! \n");
+        close(socket_conf->dpu_socket);
+        close(socket_conf->fd);
+        free(socket_conf);
+        return EXIT_FAILURE;
+    }
+    size_net = ntohl(size_net);
+    memcpy(buffer_size, &size_net, sizeof(size_t));
+
+    return EXIT_SUCCESS;
+}
+
+
 
 
 
@@ -160,19 +177,7 @@ int send_export_desc(struct host_socket *socket_conf, struct export_conf *export
         return EXIT_FAILURE;
     }
 
-    
-    len_net = htonl(export_conf->export_buf_size);
-    socket_conf->wc = send(socket_conf->dpu_socket, &len_net, sizeof(size_t), 0);
-    if (socket_conf->wc < 0) {
-        printf("\n Send export_buf_size to dpu failed! \n");
-        close(socket_conf->dpu_socket);
-        close(socket_conf->fd);
-        free(socket_conf);
-        return EXIT_FAILURE;
-    }
-
     printf("Sent export_conf to DPU!\n");
-    printf("export_desc_len: \n");
 
     return EXIT_SUCCESS;
 }
@@ -198,7 +203,7 @@ int main(int argc, char **argv) {
     //struct doca_buf_inventory *buf_inventory;
     enum doca_access_flag mmap_access = DOCA_ACCESS_FLAG_PCI_READ_WRITE; // access flag for pci read/write to from device
     char *host_buffer;
-    size_t host_buffer_size = 1024;
+    size_t host_buffer_size;
 
     // initial structs and variables for dma, context, task and progress engine
     //struct doca_dma *dma;
@@ -284,6 +289,14 @@ int main(int argc, char **argv) {
         goto fail_dev;
     }
 
+    // recieve dpu buffer size
+    sock_result = recv_buffer_size(host_sock, &host_buffer_size);
+    if (sock_result != EXIT_SUCCESS) {
+        printf("Failed to recieve buffer length from dpu!\n");
+        goto fail_dev;
+    }
+    printf("buf_size: %ld\n", host_buffer_size);
+
 
 
 
@@ -312,7 +325,6 @@ int main(int argc, char **argv) {
     // Initialize Core Structures
 
     // Initialize mmap
-
     // allocate memory to host buffer
     host_buffer = (char*)malloc(host_buffer_size);
     if (host_buffer == NULL) {
@@ -325,7 +337,6 @@ int main(int argc, char **argv) {
     export.export_desc = NULL;
     export.export_desc_len = 0;
     export.export_buf_addr = (void*)host_buffer;
-    export.export_buf_size = host_buffer_size;
 
     // set memrange
     result = doca_mmap_set_memrange(mmap, host_buffer, host_buffer_size);
@@ -366,7 +377,7 @@ int main(int argc, char **argv) {
 
 
 
-    printf("export_desc_len: %ld ,export_buf_addr: %p, export_buf_size: %ld\n", export.export_desc_len, export.export_buf_addr, export.export_buf_size);
+    printf("export_desc_len: %ld ,export_buf_addr: %p\n", export.export_desc_len, export.export_buf_addr);
 
     // send export_desc to dpu
     sock_result = send_export_desc(host_sock, &export);
@@ -376,7 +387,9 @@ int main(int argc, char **argv) {
     }
 
     printf("exported mmap!\n");
-    usleep(10000000);
+    usleep(20000000);
+
+    printf("From DMA copy: %s\n", host_buffer);
 
 
 
