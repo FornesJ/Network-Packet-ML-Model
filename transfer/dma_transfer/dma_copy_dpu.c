@@ -10,12 +10,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
 #include <doca_ctx.h>
+#include <doca_pe.h>
 #include <doca_dev.h>
 #include <doca_mmap.h>
 #include <doca_buf.h>
@@ -41,6 +43,8 @@ struct dpu_socket {
 struct export_conf {
     void *export_desc;
     size_t export_desc_len;
+    void *export_buf_addr;
+    size_t export_buf_size;
 };
 
 
@@ -118,6 +122,7 @@ fail:
 
 int recv_export_conf(struct dpu_socket *socket_conf, struct export_conf *export_conf) {
     size_t len_net;
+
     socket_conf->rc = recv(socket_conf->fd, &len_net, sizeof(size_t), 0);
     if (socket_conf->rc < 0) {
         printf("\n Wait for receiving export_desc_len timed out! \n");
@@ -136,7 +141,30 @@ int recv_export_conf(struct dpu_socket *socket_conf, struct export_conf *export_
         return EXIT_FAILURE;
     }
     export_conf->export_desc = recv_desc;
-    printf("Received export desc and export_desc_len from host!\n");
+
+    uintptr_t recv_addr;
+    socket_conf->rc = recv(socket_conf->fd, &recv_addr, sizeof(recv_addr), 0);
+    if (socket_conf->rc < 0) {
+        printf("\n Wait for receiving export_buf_addr timed out! \n");
+        close(socket_conf->fd);
+        free(socket_conf);
+        return EXIT_FAILURE;
+    }
+    export_conf->export_buf_addr = (void *)recv_addr;
+
+    socket_conf->rc = recv(socket_conf->fd, &len_net, sizeof(size_t), 0);
+    if (socket_conf->rc < 0) {
+        printf("\n Wait for receiving export_buf_size timed out! \n");
+        close(socket_conf->fd);
+        free(socket_conf);
+        return EXIT_FAILURE;
+    }
+    export_conf->export_buf_size = ntohl(len_net);
+    
+
+
+
+    printf("Received export_conf from host!\n");
     
     return EXIT_SUCCESS;
 }
@@ -147,23 +175,102 @@ int recv_export_conf(struct dpu_socket *socket_conf, struct export_conf *export_
 
 
 
+
+
+
+
+
+
+/*
+ * DMA Memcpy task completed callback
+ *
+ * @dma_task [in]: Completed task
+ * @task_user_data [in]: doca_data from the task
+ * @ctx_user_data [in]: doca_data from the context
+ */
+static void dma_memcpy_completed_callback(struct doca_dma_task_memcpy *dma_task,
+					  union doca_data task_user_data,
+					  union doca_data ctx_user_data)
+{
+	size_t *num_remaining_tasks = (size_t *)ctx_user_data.ptr;
+	doca_error_t *result = (doca_error_t *)task_user_data.ptr;
+
+	(void)dma_task;
+	/* Decrement number of remaining tasks */
+	--*num_remaining_tasks;
+	/* Assign success to the result */
+	*result = DOCA_SUCCESS;
+}
+
+/*
+ * Memcpy task error callback
+ *
+ * @dma_task [in]: failed task
+ * @task_user_data [in]: doca_data from the task
+ * @ctx_user_data [in]: doca_data from the context
+ */
+static void dma_memcpy_error_callback(struct doca_dma_task_memcpy *dma_task,
+				      union doca_data task_user_data,
+				      union doca_data ctx_user_data)
+{
+	size_t *num_remaining_tasks = (size_t *)ctx_user_data.ptr;
+	struct doca_task *task = doca_dma_task_memcpy_as_task(dma_task);
+	doca_error_t *result = (doca_error_t *)task_user_data.ptr;
+
+	/* Decrement number of remaining tasks */
+	--*num_remaining_tasks;
+	/* Get the result of the task */
+	*result = doca_task_get_status(task);
+}
+
+
+
+
+
+
+
+
+
+
+
+
 int main(int argc, char **argv) {
+    // initial structs and variables for dev
     struct doca_devinfo **dev_info_list;
     struct doca_devinfo *dev_info;
     struct doca_dev *dev;
 	uint32_t nb_devs;
     char pci_addr_str[DOCA_DEVINFO_PCI_ADDR_SIZE] = {};
-    struct doca_mmap *mmap;
+
+    // initial structs for mmap and buffer
+    struct doca_mmap *local_mmap;
+    struct doca_mmap *remote_mmap;
     struct doca_buf_inventory *buf_inventory;
+    struct doca_buf *src_buf;
+    struct doca_buf *dst_buf;
+    enum doca_access_flag mmap_access = DOCA_ACCESS_FLAG_PCI_READ_WRITE; // access flag for pci read/write to from device
+    char *dpu_buffer;
+    size_t dpu_buffer_size;
+
+
+    // initial structs and variables for dma, context, task and progress engine
     struct doca_dma *dma;
+    struct doca_ctx *dma_ctx;
+    struct doca_pe *pe;
     size_t num_elements = 1;
 
+    // structs for socket communication and export conf
     struct dpu_socket *dpu_sock;
     struct export_conf export;
 
+    // error handling and utils
 	doca_error_t result;
     int sock_result;
 	size_t i;
+
+
+
+
 
     // initialize device
 
@@ -226,6 +333,11 @@ int main(int argc, char **argv) {
 
 
 
+
+
+
+
+
     // Open DPU sock, connect to host and recieve mmap export_desc from host
     // initialize socket
     dpu_sock = alloc_dpu_sock(dpu_sock);
@@ -248,6 +360,12 @@ int main(int argc, char **argv) {
         goto fail_dev;
     }
 
+    printf("export_desc_len: %ld ,export_buf_addr: %p, export_buf_size: %ld\n", export.export_desc_len, export.export_buf_addr, export.export_buf_size);
+
+
+
+
+
 
 
 
@@ -257,10 +375,17 @@ int main(int argc, char **argv) {
 
 
     // Creating DOCA Core Objects
-    // Import mmap from DPU/RDMA endpoint
-    result = doca_mmap_create_from_export(NULL, (const void *)export.export_desc, export.export_desc_len, dev, &mmap);
+    // create local mmap
+    result = doca_mmap_create(&local_mmap);
     if (result != DOCA_SUCCESS) {
-        printf("Failed to create mmap from export: %s\n", doca_error_get_descr(result));
+        printf("Failed to create local mmap: %s\n", doca_error_get_descr(result));
+        goto fail_dev;
+    }
+
+    // Import and create remote mmap from host
+    result = doca_mmap_create_from_export(NULL, (const void *)export.export_desc, export.export_desc_len, dev, &remote_mmap);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to create remote mmap from export: %s\n", doca_error_get_descr(result));
         goto fail_dev;
     }
 
@@ -278,13 +403,101 @@ int main(int argc, char **argv) {
         goto fail_inventory;
     }
 
+    // create progress engine
+    result = doca_pe_create(&pe);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to create pe: %s\n", doca_error_get_descr(result));
+        goto fail_dma;
+    }
+
     printf("Created mmap, buf_inventory and dma!\n");
 
 
 
 
 
+
+
+
+
+
+
     // Initialize Core Structures
+
+    //Initialize local mmap
+    // alloc memory for dpu buffer
+    dpu_buffer_size = export.export_buf_size;
+    dpu_buffer = (char*)malloc(dpu_buffer_size);
+    if (dpu_buffer == NULL) {
+        result = DOCA_ERROR_NO_MEMORY;
+        printf("Failed to alloc memory to host_buffer: %s\n", doca_error_get_descr(result));
+        goto fail_pe;
+    }
+
+    result = doca_mmap_set_memrange(local_mmap, dpu_buffer, dpu_buffer_size);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to set local mmap memrange: %s\n", doca_error_get_descr(result));
+        goto fail_dpu_buffer;
+    }
+
+    // add device to mmap
+    result = doca_mmap_add_dev(local_mmap, dev);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to add device to local mmap: %s\n", doca_error_get_descr(result));
+        goto fail_dpu_buffer;
+    }
+
+    // start mmap
+    result = doca_mmap_start(local_mmap);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to start local mmap: %s\n", doca_error_get_descr(result));
+        goto fail_dpu_buffer;
+    }
+
+
+
+    // Initialize DMA
+    // create DMA Context
+    dma_ctx = doca_dma_as_ctx(dma);
+    if (dma_ctx == NULL) {
+        printf("Failed to create dma ctx: %s\n", doca_error_get_descr(result));
+        goto fail_dpu_buffer;
+    }
+
+    // set DMA task memcopy config
+    result = doca_dma_task_memcpy_set_conf(dma, dma_memcpy_completed_callback, 
+                                            dma_memcpy_error_callback, 1);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to set config to dma task memcopy: %s\n", doca_error_get_descr(result));
+        goto fail_dpu_buffer;
+    }
+
+
+
+    // Initialize doca buffers and buffer inventory
+
+
+
+
+
+
+
+    // Start Task
+
+    // connect Progress Engine to a Context
+    result = doca_pe_connect_ctx(pe, dma_ctx);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to connect pe to dma ctx: %s\n", doca_error_get_descr(result));
+        goto fail_dpu_buffer;
+    }
+
+    // start Context
+    result = doca_ctx_start(dma_ctx);
+    if (result != DOCA_SUCCESS) {
+        printf("Failed to create dma: %s\n", doca_error_get_descr(result));
+        goto fail_dpu_buffer;
+    }
+
 
 
 
@@ -297,18 +510,33 @@ int main(int argc, char **argv) {
 
 
     // clean up!
+    doca_ctx_stop(dma_ctx);
+    free(dpu_buffer);
+    doca_pe_destroy(pe);
     doca_dma_destroy(dma);
     doca_buf_inventory_destroy(buf_inventory);
-    doca_mmap_destroy(mmap);
+    doca_mmap_destroy(remote_mmap);
+    doca_mmap_destroy(local_mmap);
     close_dpu_sock(dpu_sock);
     doca_devinfo_destroy_list(dev_info_list);
     doca_dev_close(dev);
     return 0;
 
+
+
+fail_ctx:
+    doca_ctx_stop(dma_ctx);
+fail_dpu_buffer:
+    free(dpu_buffer);
+fail_pe:
+    doca_pe_destroy(pe);
+fail_dma:
+    doca_dma_destroy(dma);
 fail_inventory:
     doca_buf_inventory_destroy(buf_inventory);
 fail_mmap:
-    doca_mmap_destroy(mmap);
+    doca_mmap_destroy(remote_mmap);
+    doca_mmap_destroy(local_mmap);
 fail_dev:
     doca_dev_close(dev);
 fail_devinfo:

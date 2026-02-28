@@ -24,6 +24,7 @@
 
 #define BUF_SIZE 4096
 #define PORT 8065
+#define SIZE 8
 
 
 struct host_socket {
@@ -39,6 +40,8 @@ struct host_socket {
 struct export_conf {
     void *export_desc;
     size_t export_desc_len;
+    void *export_buf_addr;
+    size_t export_buf_size;
 };
 
 
@@ -120,8 +123,15 @@ fail:
 }
 
 
+
+
+
+
+
 int send_export_desc(struct host_socket *socket_conf, struct export_conf *export_conf) {
-    size_t len_net = htonl(export_conf->export_desc_len);
+    size_t len_net;
+    
+    len_net = htonl(export_conf->export_desc_len);
     socket_conf->wc = send(socket_conf->dpu_socket, &len_net, sizeof(size_t), 0);
     if (socket_conf->wc < 0) {
         printf("\n Send export_desc_len to dpu failed! \n");
@@ -139,7 +149,30 @@ int send_export_desc(struct host_socket *socket_conf, struct export_conf *export
         free(socket_conf);
         return EXIT_FAILURE;
     }
-    printf("Sent export_desc and export_desc_len to DPU!\n");
+    
+    uintptr_t addr_net = (uintptr_t)export_conf->export_buf_addr;
+    socket_conf->wc = send(socket_conf->dpu_socket, &addr_net, sizeof(addr_net), 0);
+    if (socket_conf->wc < 0) {
+        printf("\n Send export_desc to dpu failed! \n");
+        close(socket_conf->dpu_socket);
+        close(socket_conf->fd);
+        free(socket_conf);
+        return EXIT_FAILURE;
+    }
+
+    
+    len_net = htonl(export_conf->export_buf_size);
+    socket_conf->wc = send(socket_conf->dpu_socket, &len_net, sizeof(size_t), 0);
+    if (socket_conf->wc < 0) {
+        printf("\n Send export_buf_size to dpu failed! \n");
+        close(socket_conf->dpu_socket);
+        close(socket_conf->fd);
+        free(socket_conf);
+        return EXIT_FAILURE;
+    }
+
+    printf("Sent export_conf to DPU!\n");
+    printf("export_desc_len: \n");
 
     return EXIT_SUCCESS;
 }
@@ -153,20 +186,29 @@ int send_export_desc(struct host_socket *socket_conf, struct export_conf *export
 
 
 int main(int argc, char **argv) {
+    // initial structs and variables for dev
     struct doca_devinfo **dev_info_list;
     struct doca_devinfo *dev_info;
     struct doca_dev *dev;
 	uint32_t nb_devs;
     char pci_addr_str[DOCA_DEVINFO_PCI_ADDR_SIZE] = {};
-    struct doca_mmap *mmap;
-    enum doca_access_flag mmap_access = DOCA_ACCESS_FLAG_PCI_READ_WRITE; // access flag for pci read/write to from device
-    struct doca_buf_inventory *buf_inventory;
-    struct doca_dma *dma;
-    size_t num_elements = 1;
 
+    // initial structs for mmap and buffer
+    struct doca_mmap *mmap;
+    //struct doca_buf_inventory *buf_inventory;
+    enum doca_access_flag mmap_access = DOCA_ACCESS_FLAG_PCI_READ_WRITE; // access flag for pci read/write to from device
+    char *host_buffer;
+    size_t host_buffer_size = 1024;
+
+    // initial structs and variables for dma, context, task and progress engine
+    //struct doca_dma *dma;
+    //size_t num_elements = 1;
+
+    // structs for socket communication and export conf
     struct host_socket *host_sock;
     struct export_conf export;
 
+    // error handling and utils
 	doca_error_t result;
     int sock_result;
 	size_t i;
@@ -269,62 +311,70 @@ int main(int argc, char **argv) {
 
     // Initialize Core Structures
 
-    // initialize mmap
+    // Initialize mmap
+
+    // allocate memory to host buffer
+    host_buffer = (char*)malloc(host_buffer_size);
+    if (host_buffer == NULL) {
+        result = DOCA_ERROR_NO_MEMORY;
+        printf("Failed to alloc memory to host_buffer: %s\n", doca_error_get_descr(result));
+        goto fail_mmap;
+    }
+
+    // initiate export struct
+    export.export_desc = NULL;
+    export.export_desc_len = 0;
+    export.export_buf_addr = (void*)host_buffer;
+    export.export_buf_size = host_buffer_size;
+
     // set memrange
-    size_t len = 1024;
-    result = doca_mmap_set_memrange(mmap, pci_addr_str, len);
+    result = doca_mmap_set_memrange(mmap, host_buffer, host_buffer_size);
     if (result != DOCA_SUCCESS) {
         printf("Failed to set mem range to mmap: %s\n", doca_error_get_descr(result));
-        goto fail_mmap;
+        goto fail_host_buf;
     }
 
     // set mmap permissions based on access flags
     result = doca_mmap_set_permissions(mmap, mmap_access);
     if (result != DOCA_SUCCESS) {
         printf("Failed to set permissions to mmap: %s\n", doca_error_get_descr(result));
-        goto fail_mmap;
+        goto fail_host_buf;
     }
 
     // add device to mmap
     result = doca_mmap_add_dev(mmap, dev);
     if (result != DOCA_SUCCESS) {
         printf("Failed to add device to mmap: %s\n", doca_error_get_descr(result));
-        goto fail_mmap;
+        goto fail_host_buf;
     }
 
     // start mmap
     result = doca_mmap_start(mmap);
     if (result != DOCA_SUCCESS) {
         printf("Failed to start mmap: %s\n", doca_error_get_descr(result));
-        goto fail_mmap;
+        goto fail_host_buf;
     }
 
     // export mmap over PCI
-    export.export_desc = NULL;
-    export.export_desc_len = 0;
     result = doca_mmap_export_pci(mmap, dev, (const void **)&export.export_desc, &export.export_desc_len);
     if (result != DOCA_SUCCESS) {
-        printf("Failed to export mmap over rdma: %s\n", doca_error_get_descr(result));
-        goto fail_mmap;
+        printf("Failed to export mmap over pci: %s\n", doca_error_get_descr(result));
+        goto fail_host_buf;
     }
-    //usleep(10000000);
+
+
+
+
+
+    printf("export_desc_len: %ld ,export_buf_addr: %p, export_buf_size: %ld\n", export.export_desc_len, export.export_buf_addr, export.export_buf_size);
 
     // send export_desc to dpu
     sock_result = send_export_desc(host_sock, &export);
     if (sock_result != EXIT_SUCCESS) {
         printf("Failed to send export_desc to DPU!\n");
-        goto fail_mmap;
+        goto fail_host_buf;
     }
 
-
-    /*
-    struct doca_mmap *test_mmap;
-    result = doca_mmap_create_from_export(NULL, export.export_desc, export.export_desc_len, dev, &test_mmap);
-    if (result != DOCA_SUCCESS) {
-        printf("Failed to create mmap from export: %s\n", doca_error_get_descr(result));
-        goto fail_mmap;
-    }
-    */
     printf("exported mmap!\n");
     usleep(10000000);
 
@@ -337,12 +387,14 @@ int main(int argc, char **argv) {
     //doca_dma_destroy(dma);
     //doca_buf_inventory_destroy(buf_inventory);
     //doca_mmap_destroy(test_mmap);
+    free(host_buffer);
     doca_mmap_destroy(mmap);
     close_host_sock(host_sock);
     doca_devinfo_destroy_list(dev_info_list);
     doca_dev_close(dev);
     return 0;
-
+fail_host_buf:
+    free(host_buffer);
 fail_mmap:
     doca_mmap_destroy(mmap);
 fail_dev:
