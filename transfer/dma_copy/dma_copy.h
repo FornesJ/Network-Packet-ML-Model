@@ -55,15 +55,25 @@ struct export_conf {
     void *export_desc;
 };
 
-struct buf_conf {
-    size_t buf_size;
-};
-
 struct dma_status {
     Type type;
     Signal signal;
     size_t size;
 };
+
+typedef enum {
+    EXPORT_CONF,
+    TENSOR,
+    DMA_STATUS,
+    NONE
+} Type;
+
+typedef enum {
+    READY,
+    WAITE,
+    DONE,
+    ERROR
+} Signal;
 
 
 
@@ -112,28 +122,13 @@ struct dma_conf {
 
 
 
-struct serialized {
+
+
+
+struct buf_conf {
     size_t buf_size;
-    Type type;
-    void *data;
+    uint8_t *buffer;
 };
-
-
-
-typedef enum {
-    BUF_CONF,
-    EXPORT_CONF,
-    TENSOR,
-    DMA_STATUS,
-    NONE
-} Type;
-
-typedef enum {
-    READY,
-    WAITE,
-    DONE,
-    ERROR
-} Signal;
 
 
 
@@ -152,3 +147,19 @@ int get_tensor_dim(struct tensor *t);
 int* get_tensor_shape(struct tensor *t);
 
 float* get_tensor_buffer(struct tensor *t);
+
+
+
+
+
+/* Functions for serialization / deserialization */
+struct buf_conf* serialize(void *data, Type type);
+
+void* deserialize(struct buf_conf *buf, Type type);
+
+
+
+
+
+
+/* Functions for DPU and host Socket */

@@ -6,70 +6,72 @@
 #include "dma_copy.h"
 
 
-/*
-uint8_t* serialize(struct serialized *data) {
-    size_t out_size = sizeof(size_t) + sizeof(Type) + data->buf_size
-    uint8_t *buffer = malloc(out_size);
-    if (!buffer) return NULL;
-    
-    // copy data to buffer
-    uint8_t *ptr = buffer;
 
-    // copy buf_size
-    memcpy(ptr, &data->buf_size, sizeof(size_t));
-    ptr += sizeof(size_t);
+struct buf_conf* serialize(void *data, Type type) {
+    struct buf_conf* buf;
 
-    // copy data type
-    memcopy(ptr, &data->type, sizeof(Type));
-    ptr += sizeof(Type);
-
-    // copy struct
-    switch (data->type) {
-        case 
-    }
-}
-*/
-uint8_t* serialize(void *data, Type type) {
-    uint8_t *buffer;
     switch (type) {
-        case Type.BUF_CONF:
-            buffer = serialize_buf_conf(data);
-            break;
         case Type.EXPORT_CONF:
-            buffer = serialize_export_conf(data);
+            buf = serialize_export_conf(data);
             break;
         case Type.TENSOR:
-            buffer = serialize_tensor(data);
+            buf = serialize_tensor(data);
             break;
         case Type.DMA_STATUS:
-            buffer = serialize_dma_status(data);
+            buf = serialize_dma_status(data);
             break;
         default:
-            buffer = NULL;
+            buf = NULL;
             break;
     }
-    return buffer;
+    return buf;
 }
 
-uint8_t* serialize_dma_status(struct dma_status *status) {
+void* deserialize(struct buf_conf *buf, Type type) {
+    void *data;
+    switch (type) {
+        case Type.EXPORT_CONF:
+            data = (void*) deserialize_export_conf(buf);
+            break;
+        case Type.TENSOR:
+            data = (void*) deserialize_tensor(buf);
+            break;
+        case Type.DMA_STATUS:
+            data = (void*) deserialize_dma_status(buf);
+            break;
+        default:
+            data = NULL;
+            break;
+    }
+    return data;
+}
+
+
+
+
+
+
+
+
+struct buf_conf* serialize_dma_status(struct dma_status *status) {
+    struct buf_conf *buf = malloc(sizeof(struct buf_conf));
+    if (!buf) return NULL;
+
     size_t out_size = sizeof(struct dma_status);
 
     uint8_t buffer[out_size];
     memcpy(buffer, status, out_size);
 
-    return buffer;
+    buf->buf_size = out_size;
+    buf->buffer = buffer;
+
+    return buf;
 }
 
-uint8_t* serialize_buf_conf(struct buf_conf *buf) {
-    size_t out_size = sizeof(struct buf_conf);
+struct buf_conf* serialize_export_conf(struct export_conf *export) {
+    struct buf_conf *buf = malloc(sizeof(struct buf_conf));
+    if (!buf) return NULL;
 
-    uint8_t buffer[out_size];
-    memcpy(buffer, buf, out_size);
-
-    return buffer;
-}
-
-uint8_t* serialize_export_conf(struct export_conf *export) {
     size_t out_size = sizeof(size_t) + export->export_desc_len;
 
     uint8_t *buffer = malloc(out_size);
@@ -85,10 +87,16 @@ uint8_t* serialize_export_conf(struct export_conf *export) {
     // copy export to buffer
     memcpy(ptr, export->xport_desc, export->export_desc_len);
 
-    return buffer;
+    buf->buf_size = out_size;
+    buf->buffer = buffer;
+
+    return buf;
 }
 
-uint8_t* serialize_tensor(struct tensor *tensor) {
+struct buf_conf* serialize_tensor(struct tensor *tensor) {
+    struct buf_conf *buf = malloc(sizeof(struct buf_conf));
+    if (!buf) return NULL;
+
     size_t out_size = 2 * sizeof(int) + tensor->dim * sizeof(int) + tensor->num_elements * sizeof(float);
     
     uint8_t *buffer = malloc(out_size);
@@ -113,10 +121,77 @@ uint8_t* serialize_tensor(struct tensor *tensor) {
     // copy tensor buffer to buffer
     memcpy(ptr, tensor->buffer, tensor->num_elements * sizeof(float));
 
-    return buffer;
+    buf->buf_size = out_size;
+    buf->buffer = buffer;
+
+    return buf;
 }
 
 
+
+
+
+
+
+
+
+struct dma_status* deserialize_dma_status(struct buf_conf *buf) {
+    struct dma_status* status = malloc(sizeof(struct dma_status));
+    if (!status) return NULL;
+
+    memcpy(status, buf->buffer, buf->buf_size);
+
+    return status;
+}
+
+struct export_conf* deserialize_export_conf(struct buf_conf *buf) {
+    struct export_conf *export = malloc(sizeof(struct export_conf));
+    if (!export) return NULL;
+
+    uint8_t *ptr = buf->buffer;
+
+    // copy export_desc_len from buffer
+    memcpy(&export->export_desc_len, ptr, sizeof(size_t));
+    ptr += sizeof(size_t);
+
+    export->export_desc = malloc(export->export_desc_len);
+    if (!export->export_desc) return NULL;
+
+    // copy export from buffer
+    memcpy(export->xport_desc, ptr, export->export_desc_len);
+
+    return export;
+}
+
+struct tensor* deserialize_tensor(struct buf_conf *buf) {
+    struct tensor *tensor = malloc(sizeof(struct tensor));
+    if (!t) return NULL;
+
+    uint8_t *ptr = buf->buffer;
+
+    // copy num elements from buffer
+    memcpy(&tensor->num_elements, ptr, sizeof(int));
+    ptr += sizeof(int);
+
+    // copy dim to buffer
+    memcpy(&tensor->dim, ptr, sizeof(int));
+    ptr += sizeof(int);
+
+    // malloc shape
+    tensor->shape = malloc(tensor->dim * sizeof(int));
+
+    // copy shape from buffer
+    memcpy(tensor->shape, ptr, tensor->dim * sizeof(int));
+    ptr += tensor->dim * sizeof(int);
+
+    // malloc tensor from buffer
+    tensor->buffer = malloc(tensor->num_elements * sizeof(float));
+
+    // copy tensor buffer to buffer
+    memcpy(tensor->buffer, ptr, tensor->num_elements * sizeof(float));
+
+    return tensor;
+}
 
 
 

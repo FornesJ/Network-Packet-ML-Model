@@ -11,6 +11,8 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
+#include "dma_copy.h"
+
 
 
 struct dpu_socket* alloc_dpu_sock() {
@@ -162,5 +164,35 @@ fail:
     return EXIT_FAILURE;
 }
 
+
+
+
+
+int dpu_send_dpu_status(struct dpu_socket *socket_conf, struct dma_status *status) {
+    struct buf_conf *buf = serialize((void*) status, Type.DMA_STATUS);
+
+    socket_conf->wc = send(socket_conf->fd, buf->buffer, buf->buf_size, 0);
+    if (socket_conf->wc < 0) {
+        printf("\n Send status to host failed! \n");
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
+}
+
+
+int dpu_recv_host_status(struct dpu_socket *socket_conf, struct dma_status *status);
+
+
+int host_send_host_status(struct host_socket *socket_conf, struct dma_status *status);
+
+
+int host_recv_host_status(struct host_socket *socket_conf, struct dma_status *status);
+
+
+int dpu_recv_host_export_conf(struct dpu_socket *socket_conf, struct export_conf *export);
+
+
+int host_send_host_export_conf(struct host_socket *socket_conf, struct export_conf *export);
 
 
