@@ -157,9 +157,65 @@ struct buf_conf* serialize(void *data, Type type);
 
 void* deserialize(struct buf_conf *buf, Type type);
 
+/* Functions for allocating and freeing buf_conf*/
+struct buf_conf* alloc_buf_conf();
+
+void delete_buf_conf(struct buf_conf *buf);
+
+
+
 
 
 
 
 
 /* Functions for DPU and host Socket */
+struct dpu_socket* alloc_dpu_sock();
+
+void close_dpu_sock(struct dpu_socket *s);
+
+struct host_socket* alloc_host_sock();
+
+void close_host_sock(struct host_socket *s);
+
+int open_dpu_socket(struct dpu_socket *socket_conf);
+
+int open_host_socket(struct host_socket *socket_conf);
+
+int dpu_send(struct dpu_socket *socket_conf, void* data, Type type);
+
+int dpu_recv(struct dpu_socket *socket_conf, void* data, Type type);
+
+int host_send(struct host_socket *socket_conf, void* data, Type type);
+
+int host_recv(struct host_socket *socket_conf, void* data, Type type);
+
+
+
+
+
+
+/* Functions for handling DPU and host DMA transfer */
+
+
+// open device
+int open_device(struct *dev_conf config);
+
+
+// create core objects
+int dpu_create_core_objects(struct dpu_conf *config, 
+                        struct dma_conf *dma_config, 
+                        struct dev_conf *dev_config, 
+                        struct export_conf *export);
+
+int host_create_core_objects(struct host_conf *config);
+
+
+// Initialize Core Structures
+int dpu_init_core_objects(struct dpu_conf *config, 
+                        struct dma_conf *dma_config, 
+                        struct dev_conf *dev_config);
+
+int host_init_core_objects(struct dpu_conf *config,  
+                        struct dev_conf *dev_config,
+                        struct export_conf *export);                        

@@ -168,31 +168,208 @@ fail:
 
 
 
-int dpu_send_dpu_status(struct dpu_socket *socket_conf, struct dma_status *status) {
-    struct buf_conf *buf = serialize((void*) status, Type.DMA_STATUS);
 
-    socket_conf->wc = send(socket_conf->fd, buf->buffer, buf->buf_size, 0);
-    if (socket_conf->wc < 0) {
-        printf("\n Send status to host failed! \n");
+
+int dpu_send(struct dpu_socket *socket_conf, void* data, Type type) {
+    // serialize data struct
+    struct buf_conf *buf = serialize(data, type);
+    if (buf == NULL) {
+        printf("\n serialize data failed! \n");
         return EXIT_FAILURE;
     }
+
+    // send size of buffer to host
+    size_t size_net = htonl(buf->buf_size);
+    socket_conf->wc = send(socket_conf->fd, &size_net, sizeof(size_t), 0);
+    if (socket_conf->wc < 0) {
+        printf("\n Send buf size to host failed! \n");
+        delete_buf_conf(buf);
+        return EXIT_FAILURE;
+    }
+
+    // send buffer to host
+    int bytes_left = (int)buf->buf_size;
+    uint8_t *ptr = buf->buffer;
+    int log = 1;
+    while (bytes_left > 0) {
+        socket_conf->wc = send(socket_conf->fd, ptr, bytes_left, 0);
+        if (socket_conf->wc < 0) {
+            log = -1;
+            break;
+        }
+
+        bytes_left -= socket_conf->wc;
+        ptr += socket_conf->wc;
+    }
+    if (log != 1) {
+        printf("\n Send buffer to host failed! \n");
+        delete_buf_conf(buf);
+        return EXIT_FAILURE;
+    }
+
+    delete_buf_conf(buf);
 
     return EXIT_SUCCESS;
 }
 
 
-int dpu_recv_host_status(struct dpu_socket *socket_conf, struct dma_status *status);
+
+int dpu_recv(struct dpu_socket *socket_conf, void* data, Type type) {
+    // alloc buf conf
+    size_t size_net;
+    struct buf_conf *buf = alloc_buf_conf();
+    if (buf == NULL) {
+        printf("\n Alloc buf_conf failed! \n");
+        return EXIT_FAILURE;
+    }
+
+    // recieve buf size from host
+    socket_conf->rc = recv(socket_conf->fd, &size_net, sizeof(size_t), 0);
+    if (socket_conf->rc < 0) {
+        printf("\n Wait for receiving buf size timed out! \n");
+        free(buf);
+        return EXIT_FAILURE;
+    }
+    buf->buf_size = ntohl(size_net);
+
+    // alloc buffer
+    buf->buffer = malloc(buf_buf_size);
+    if (!buf->buffer) {
+        printf("\n Alloc buffer failed! \n");
+        free(buf);
+        return EXIT_FAILURE;
+    }
+
+    // recieve buffer from host
+    int bytes_left = (int)buf->buf_size;
+    uint8_t *ptr = buf->buffer;
+    int log = 1;
+    while (bytes_left > 0) {
+        socket_conf->rc = recv(socket_conf->fd, ptr, bytes_left, 0);
+        if (socket_conf->rc < 0) {
+            log = -1;
+            break;
+        }
+
+        bytes_left -= socket_conf->rc;
+        buf_ptr += socket_conf->rc;
+    }
+    if (log != 1) {
+        printf("\n Recieve buffer from host failed! \n");
+        delete_buf_conf(buf);
+        return EXIT_FAILURE;
+    }
+
+    // deserialize data struct
+    data = deserialize(buf, type);
+
+    return EXIT_SUCCESS;
+
+}
 
 
-int host_send_host_status(struct host_socket *socket_conf, struct dma_status *status);
 
 
-int host_recv_host_status(struct host_socket *socket_conf, struct dma_status *status);
 
 
-int dpu_recv_host_export_conf(struct dpu_socket *socket_conf, struct export_conf *export);
 
 
-int host_send_host_export_conf(struct host_socket *socket_conf, struct export_conf *export);
+
+
+int host_send(struct host_socket *socket_conf, void* data, Type type) {
+    // serialize data struct
+    struct buf_conf *buf = serialize(data, type);
+    if (buf == NULL) {
+        printf("\n serialize data failed! \n");
+        return EXIT_FAILURE;
+    }
+
+    // send size of buffer to dpu
+    size_t size_net = htonl(buf->buf_size);
+    socket_conf->wc = send(socket_conf->dpu_socket, &size_net, sizeof(size_t), 0);
+    if (socket_conf->wc < 0) {
+        printf("\n Send buf_size to dpu failed! \n");
+        delete_buf_conf(buf);
+        return EXIT_FAILURE;
+    }
+
+    // send buffer to host
+    int bytes_left = (int)buf->buf_size;
+    uint8_t *ptr = buf->buffer;
+    int log = 1;
+    while (bytes_left > 0) {
+        socket_conf->wc = send(socket_conf->dpu_socket, ptr, bytes_left, 0);
+        if (socket_conf->wc < 0) {
+            log = -1;
+            break;
+        }
+
+        bytes_left -= socket_conf->wc;
+        ptr += socket_conf->wc;
+    }
+    if (log != 1) {
+        printf("\n Send buffer to dpu failed! \n");
+        delete_buf_conf(buf);
+        return EXIT_FAILURE;
+    }
+
+    delete_buf_conf(buf);
+
+    return EXIT_SUCCESS;
+}
+
+
+
+int host_recv(struct host_socket *socket_conf, void* data, Type type) {
+    // alloc buf conf
+    size_t size_net;
+    struct buf_conf *buf = alloc_buf_conf();
+    if (buf == NULL) {
+        printf("\n Alloc buf_conf failed! \n");
+        return EXIT_FAILURE;
+    }
+
+    // recieve buf size from host
+    socket_conf->rc = recv(socket_conf->dpu_socket, &size_net, sizeof(size_t), 0);
+    if (socket_conf->rc < 0) {
+        printf("\n Wait for receiving buf size timed out! \n");
+        free(buf);
+        return EXIT_FAILURE;
+    }
+    buf->buf_size = ntohl(size_net);
+
+    // alloc buffer
+    buf->buffer = malloc(buf_buf_size);
+    if (!buf->buffer) {
+        printf("\n Alloc buffer failed! \n");
+        free(buf);
+        return EXIT_FAILURE;
+    }
+
+    // recieve buffer from host
+    int bytes_left = (int)buf->buf_size;
+    uint8_t *ptr = buf->buffer;
+    int log = 1;
+    while (bytes_left > 0) {
+        socket_conf->rc = recv(socket_conf->dpu_socket, ptr, bytes_left, 0);
+        if (socket_conf->rc < 0) {
+            log = -1;
+            break;
+        }
+
+        bytes_left -= socket_conf->rc;
+        buf_ptr += socket_conf->rc;
+    }
+    if (log != 1) {
+        printf("\n Recieve buffer from dpu failed! \n");
+        delete_buf_conf(buf);
+        return EXIT_FAILURE;
+    }
+
+    // deserialize data struct
+    data = deserialize(buf, type);
+
+    return EXIT_SUCCESS;
+}
 
 

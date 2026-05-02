@@ -7,9 +7,25 @@
 
 
 
+
+
+struct buf_conf* alloc_buf_conf() {
+    struct buf_conf *buf = malloc(sizeof(struct buf_conf));
+    if (!buf) return NULL;
+    return buf;
+}
+
+void delete_buf_conf(struct buf_conf *buf) {
+    if (buf) {
+        free(buf->buffer);
+        free(buf);
+    }
+}
+
+
+
 struct buf_conf* serialize(void *data, Type type) {
     struct buf_conf* buf;
-
     switch (type) {
         case Type.EXPORT_CONF:
             buf = serialize_export_conf(data);
@@ -54,7 +70,7 @@ void* deserialize(struct buf_conf *buf, Type type) {
 
 
 struct buf_conf* serialize_dma_status(struct dma_status *status) {
-    struct buf_conf *buf = malloc(sizeof(struct buf_conf));
+    struct buf_conf *buf = alloc_buf_conf();
     if (!buf) return NULL;
 
     size_t out_size = sizeof(struct dma_status);
@@ -69,7 +85,7 @@ struct buf_conf* serialize_dma_status(struct dma_status *status) {
 }
 
 struct buf_conf* serialize_export_conf(struct export_conf *export) {
-    struct buf_conf *buf = malloc(sizeof(struct buf_conf));
+    struct buf_conf *buf = alloc_buf_conf();
     if (!buf) return NULL;
 
     size_t out_size = sizeof(size_t) + export->export_desc_len;
@@ -94,7 +110,7 @@ struct buf_conf* serialize_export_conf(struct export_conf *export) {
 }
 
 struct buf_conf* serialize_tensor(struct tensor *tensor) {
-    struct buf_conf *buf = malloc(sizeof(struct buf_conf));
+    struct buf_conf *buf = alloc_buf_conf();
     if (!buf) return NULL;
 
     size_t out_size = 2 * sizeof(int) + tensor->dim * sizeof(int) + tensor->num_elements * sizeof(float);
@@ -141,6 +157,9 @@ struct dma_status* deserialize_dma_status(struct buf_conf *buf) {
 
     memcpy(status, buf->buffer, buf->buf_size);
 
+    // delete buffer
+    delete_buf_conf(buf);
+
     return status;
 }
 
@@ -159,6 +178,9 @@ struct export_conf* deserialize_export_conf(struct buf_conf *buf) {
 
     // copy export from buffer
     memcpy(export->xport_desc, ptr, export->export_desc_len);
+
+    // delete buffer
+    delete_buf_conf(buf);
 
     return export;
 }
@@ -190,8 +212,9 @@ struct tensor* deserialize_tensor(struct buf_conf *buf) {
     // copy tensor buffer to buffer
     memcpy(tensor->buffer, ptr, tensor->num_elements * sizeof(float));
 
+    // delete buffer
+    delete_buf_conf(buf);
+
     return tensor;
 }
-
-
 
